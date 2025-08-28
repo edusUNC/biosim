@@ -107,7 +107,7 @@ class LocalAnalytics {
     }
   }
 
-  getEvents(): AnalyticsEvent[] {
+  getAllEvents(): AnalyticsEvent[] {
     return this.getEvents();
   }
 
@@ -117,7 +117,7 @@ class LocalAnalytics {
   }
 
   exportEvents(): string {
-    const events = this.getEvents();
+    const events = this.getAllEvents();
     return JSON.stringify(events, null, 2);
   }
 
@@ -126,7 +126,7 @@ class LocalAnalytics {
     eventsByType: Record<string, number>;
     recentEvents: AnalyticsEvent[];
   } {
-    const events = this.getEvents();
+    const events = this.getAllEvents();
     const eventsByType = events.reduce((acc, event) => {
       acc[event.type] = (acc[event.type] || 0) + 1;
       return acc;

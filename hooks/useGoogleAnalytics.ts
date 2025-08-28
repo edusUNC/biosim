@@ -5,7 +5,7 @@ const GA_TRACKING_ID = process.env.NEXT_PUBLIC_GA_ID || 'G-XXXXXXXXXX';
 
 // Inicializar Google Analytics
 export const initGA = () => {
-  if (typeof window !== 'undefined' && window.gtag) {
+  if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
     window.gtag('config', GA_TRACKING_ID, {
       page_title: 'Simuladores FIBI',
       page_location: window.location.href,
@@ -25,7 +25,7 @@ export const GA_EVENTS = {
 export function useGoogleAnalytics() {
   // Inicializar GA al cargar
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.gtag) {
+    if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
       initGA();
     }
   }, []);
@@ -36,7 +36,7 @@ export function useGoogleAnalytics() {
     simulatorName: string, 
     category: string
   ) => {
-    if (typeof window !== 'undefined' && window.gtag) {
+    if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
       window.gtag('event', GA_EVENTS.SIMULATOR_OPENED, {
         event_category: 'Simulador',
         event_label: simulatorName,
@@ -50,7 +50,7 @@ export function useGoogleAnalytics() {
 
   // Trackear filtro por categoría
   const trackCategoryFilter = useCallback((category: string) => {
-    if (typeof window !== 'undefined' && window.gtag) {
+    if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
       window.gtag('event', GA_EVENTS.CATEGORY_FILTERED, {
         event_category: 'Filtro',
         event_label: category,
@@ -62,7 +62,7 @@ export function useGoogleAnalytics() {
 
   // Trackear búsqueda
   const trackSearch = useCallback((searchTerm: string, resultsCount: number) => {
-    if (typeof window !== 'undefined' && window.gtag) {
+    if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
       window.gtag('event', GA_EVENTS.SEARCH_PERFORMED, {
         event_category: 'Búsqueda',
         event_label: searchTerm,
@@ -76,7 +76,7 @@ export function useGoogleAnalytics() {
 
   // Trackear vista de página
   const trackPageView = useCallback((page: string) => {
-    if (typeof window !== 'undefined' && window.gtag) {
+    if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
       window.gtag('event', 'page_view', {
         page_title: page,
         page_location: window.location.href,
@@ -86,7 +86,7 @@ export function useGoogleAnalytics() {
 
   // Trackear cambio de filtro
   const trackFilterChange = useCallback((filterType: string, value: string) => {
-    if (typeof window !== 'undefined' && window.gtag) {
+    if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
       window.gtag('event', GA_EVENTS.FILTER_CHANGED, {
         event_category: 'Filtro',
         event_label: `${filterType}: ${value}`,
@@ -109,7 +109,7 @@ export function useGoogleAnalytics() {
 // Declaración global para TypeScript
 declare global {
   interface Window {
-    gtag: (
+    gtag?: (
       command: 'config' | 'event',
       targetId: string,
       config?: Record<string, any>
