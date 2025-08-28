@@ -1,11 +1,27 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Configuración optimizada para Next.js 14
-  output: 'export',
-  trailingSlash: true,
-  images: {
-    unoptimized: true
-  }
+  // Configuración para Vercel
+  async rewrites() {
+    return [
+      {
+        source: '/simuladores/:path*',
+        destination: '/simuladores/:path*',
+      },
+    ];
+  },
+  async headers() {
+    return [
+      {
+        source: '/simuladores/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+    ];
+  },
 }
 
 module.exports = nextConfig
