@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { simuladores, categorias, Simulador } from '../data/simuladores';
 import { getCategoryColors } from '../data/categoryColors';
 import { useTheme } from '../hooks/useTheme';
+import { useAnalytics } from '../hooks/useAnalytics';
 import Footer from '../components/Footer';
+import AnalyticsDebug from '../components/AnalyticsDebug';
 import { Search, BookOpen, Heart, Brain, Zap, Filter, Sparkles } from 'lucide-react';
 
 export default function Home() {
@@ -13,6 +15,14 @@ export default function Home() {
   
   // Aplicar tema dinámico basado en la categoría seleccionada
   useTheme(categoriaFiltro === 'todas' ? '' : categoriaFiltro);
+  
+  // Analytics
+  const { trackCategoryFilter, trackSearch, trackPageView } = useAnalytics();
+  
+  // Trackear vista de página al cargar
+  useEffect(() => {
+    trackPageView('home');
+  }, [trackPageView]);
 
   const simuladoresFiltrados = useMemo(() => {
     let filtered = simuladores;
@@ -31,6 +41,20 @@ export default function Home() {
     
     return filtered;
   }, [categoriaFiltro, searchTerm]);
+
+  // Trackear cambios de filtro
+  useEffect(() => {
+    if (categoriaFiltro !== 'todas') {
+      trackCategoryFilter(categoriaFiltro);
+    }
+  }, [categoriaFiltro, trackCategoryFilter]);
+
+  // Trackear búsquedas
+  useEffect(() => {
+    if (searchTerm.trim()) {
+      trackSearch(searchTerm, simuladoresFiltrados.length);
+    }
+  }, [searchTerm, simuladoresFiltrados.length, trackSearch]);
 
   const getCategoryIcon = (categoria: string) => {
     const icons = {
@@ -134,6 +158,7 @@ export default function Home() {
       </main>
 
       <Footer />
+      <AnalyticsDebug />
     </div>
   );
 }
@@ -151,6 +176,11 @@ function SimuladorCard({ simulador }: { simulador: Simulador }) {
 
   const Icon = getCategoryIcon(simulador.categoria);
   const categoryColors = getCategoryColors(simulador.categoria);
+  const { trackSimulatorOpen } = useAnalytics();
+
+  const handleSimulatorClick = () => {
+    trackSimulatorOpen(simulador.id, simulador.nombre, simulador.categoria);
+  };
 
   return (
     <div className="simulator-card">
@@ -200,6 +230,7 @@ function SimuladorCard({ simulador }: { simulador: Simulador }) {
           target="_blank"
           rel="noopener noreferrer"
           className="card-button"
+          onClick={handleSimulatorClick}
         >
           <BookOpen />
           Abrir Simulador
