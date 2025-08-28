@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Simulators Directory</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(120deg, #e0eafc 0%, #cfdef3 100%);
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 48px auto;
+      padding: 32px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(44, 62, 80, 0.08);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 40px;
+      font-size: 2.2em;
+      color: #1976d2;
+      letter-spacing: 1px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 32px;
+    }
+
+    .card {
+      background: #f9fbfd;
+      border-radius: 10px;
+      box-shadow: 0 2px 12px rgba(25, 118, 210, 0.07);
+      padding: 28px 22px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border: 1px solid #e3eafc;
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+
+    .card:hover {
+      box-shadow: 0 6px 24px rgba(25, 118, 210, 0.13);
+      transform: translateY(-4px) scale(1.03);
+      border-color: #b6d0f7;
+    }
+
+    .card-title {
+      font-size: 1.25em;
+      font-weight: 600;
+      margin-bottom: 14px;
+      color: #1976d2;
+    }
+
+    .card-desc {
+      color: #444;
+      margin-bottom: 22px;
+      min-height: 44px;
+      font-size: 1em;
+    }
+
+    .card-link {
+      align-self: flex-start;
+      text-decoration: none;
+      color: #fff;
+      background: #1976d2;
+      font-weight: 500;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 5px;
+      box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+
+    .card-link:hover {
+      background: #1565c0;
+      box-shadow: 0 4px 16px rgba(25, 118, 210, 0.16);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>Simulators Directory</h1>
+    <div class="cards">
+      <div class="card">
+        <div class="card-title">Loan Calculator</div>
+        <div class="card-desc">Calculate monthly payments and total interest for loans.</div>
+        <a class="card-link" href="loan-calculator.html">Open Simulator</a>
+      </div>
+      <div class="card">
+        <div class="card-title">Investment Simulator</div>
+        <div class="card-desc">Simulate investment growth over time with different rates.</div>
+        <a class="card-link" href="investment-simulator.html">Open Simulator</a>
+      </div>
+      <div class="card">
+        <div class="card-title">Currency Converter</div>
+        <div class="card-desc">Convert between currencies using real-time exchange rates.</div>
+        <a class="card-link" href="currency-converter.html">Open Simulator</a>
+      </div>
+      <div class="card">
+        <div class="card-title">Savings Planner</div>
+        <div class="card-desc">Plan your savings goals and track your progress over time.</div>
+        <a class="card-link" href="savings-planner.html">Open Simulator</a>
+      </div>
+      <!-- Add more cards for each simulator page in your directory -->
+    </div>
+  </div>
+</body>
+
+</html>

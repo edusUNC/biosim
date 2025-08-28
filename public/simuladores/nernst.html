@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador: Equilibrio de Nernst (Corregido)</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f0f4f8;
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    #simulador-container {
+      background-color: #ffffff;
+      padding: 2.5rem;
+      border-radius: 15px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 900px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #1565c0;
+      margin-bottom: 0.5rem;
+    }
+
+    p.descripcion {
+      text-align: center;
+      color: #555;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+
+    #panel-principal {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      align-items: stretch;
+    }
+
+    #controles {
+      background-color: #e3f2fd;
+      padding: 1.5rem;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .control-grupo {
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      font-weight: bold;
+      display: block;
+      margin-bottom: 0.5rem;
+      color: #0d47a1;
+    }
+
+    select,
+    input[type="range"] {
+      width: 100%;
+      cursor: pointer;
+    }
+
+    .valor-slider {
+      font-weight: bold;
+      color: #1976d2;
+      float: right;
+    }
+
+    #resultado-display {
+      margin-top: 1.5rem;
+      background: #0d47a1;
+      color: white;
+      padding: 1.5rem;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    #resultado-display h3 {
+      margin: 0 0 0.5rem 0;
+      font-size: 1.1rem;
+      text-transform: uppercase;
+      opacity: 0.9;
+    }
+
+    #potencial-valor {
+      font-size: 2.8rem;
+      font-weight: bold;
+    }
+
+    #animacion-container {
+      border: 2px solid #ddd;
+      border-radius: 10px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      padding: 1rem;
+      background: #f5f5f5;
+      min-height: 350px;
+    }
+
+    #celula-out,
+    #celula-in {
+      position: relative;
+      width: 50%;
+      height: 100%;
+      padding: 10px;
+    }
+
+    #membrana {
+      width: 10px;
+      height: 100%;
+      background-color: #ffca28;
+      border-left: 2px solid #f57f17;
+      border-right: 2px solid #f57f17;
+    }
+
+    .ion-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      position: absolute;
+      transition: background-color 0.3s ease;
+    }
+
+    .arrow {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 3rem;
+      text-align: center;
+      transition: transform 0.3s ease;
+    }
+
+    .arrow span {
+      font-size: 0.9rem;
+      display: block;
+      font-weight: bold;
+    }
+
+    #fuerza-quimica {
+      color: #4caf50;
+      top: 25%;
+    }
+
+    #fuerza-electrica {
+      color: #2196f3;
+      top: 55%;
+    }
+
+    .label-zona {
+      position: absolute;
+      bottom: 10px;
+      font-weight: bold;
+      color: #777;
+      background-color: rgba(255, 255, 255, 0.7);
+      padding: 2px 8px;
+      border-radius: 5px;
+    }
+
+    #label-out {
+      left: 20px;
+    }
+
+    #label-in {
+      right: 20px;
+    }
+
+    @media (max-width: 768px) {
+      #panel-principal {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="simulador-container">
+    <h1>Simulador de Equilibrio de Nernst (Corregido)</h1>
+    <p class="descripcion">Ajusta las concentraciones y observa cómo se genera un potencial de equilibrio donde la
+      fuerza eléctrica anula a la fuerza química.</p>
+
+    <div id="panel-principal">
+      <div id="controles">
+        <div class="control-grupo">
+          <label for="ion-select">Ión</label>
+          <select id="ion-select">
+            <option value="K+" selected>Potasio (K+)</option>
+            <option value="Na+">Sodio (Na+)</option>
+            <option value="Cl-">Cloro (Cl-)</option>
+            <option value="Ca++">Calcio (Ca++)</option>
+          </select>
+        </div>
+
+        <div class="control-grupo">
+          <label for="conc-out">Concentración Afuera [mM]<span class="valor-slider" id="valor-out">5</span></label>
+          <input type="range" id="conc-out" min="1" max="150" value="5">
+        </div>
+
+        <div class="control-grupo">
+          <label for="conc-in">Concentración Adentro [mM]<span class="valor-slider" id="valor-in">140</span></label>
+          <input type="range" id="conc-in" min="1" max="150" value="140">
+        </div>
+
+        <div id="resultado-display">
+          <h3>Potencial de Equilibrio (E_ion)</h3>
+          <div id="potencial-valor">-90.13 mV</div>
+        </div>
+      </div>
+
+      <div id="animacion-container">
+        <div id="celula-out"><span id="label-out" class="label-zona">EXTRACELULAR</span></div>
+        <div id="membrana"></div>
+        <div id="celula-in"><span id="label-in" class="label-zona">INTRACELULAR</span></div>
+
+        <div id="fuerza-quimica" class="arrow"><span>F. Química (Difusión)</span>&rarr;</div>
+        <div id="fuerza-electrica" class="arrow"><span>F. Eléctrica (Equilibrio)</span>&larr;</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ionSelect = document.getElementById('ion-select');
+    const concOutSlider = document.getElementById('conc-out');
+    const concInSlider = document.getElementById('conc-in');
+    const valorOut = document.getElementById('valor-out');
+    const valorIn = document.getElementById('valor-in');
+    const potencialValor = document.getElementById('potencial-valor');
+    const celulaOut = document.getElementById('celula-out');
+    const celulaIn = document.getElementById('celula-in');
+    const fQuimica = document.getElementById('fuerza-quimica');
+    const fElectrica = document.getElementById('fuerza-electrica');
+
+    // --- Ion Data (INCLUYE CONCENTRACIONES POR DEFECTO) ---
+    const ionData = {
+      'K+': { z: 1, color: '#8e44ad', out: 5, in: 140 },
+      'Na+': { z: 1, color: '#2980b9', out: 145, in: 12 },
+      'Cl-': { z: -1, color: '#27ae60', out: 110, in: 10 },
+      'Ca++': { z: 2, color: '#c0392b', out: 2, in: 1 } // "in" es ~0.0001mM, usamos 1 por el límite del slider
+    };
+
+    // --- Función para actualizar concentraciones al cambiar de ión ---
+    function actualizarConcentraciones() {
+      const ion = ionSelect.value;
+      concOutSlider.value = ionData[ion].out;
+      concInSlider.value = ionData[ion].in;
+      updateSimulator(); // Llama a la función principal para actualizar todo
+    }
+
+    function updateSimulator() {
+      const ion = ionSelect.value;
+      const C_out = parseFloat(concOutSlider.value);
+      const C_in = parseFloat(concInSlider.value);
+      const z = ionData[ion].z;
+
+      const E_ion = (61.5 / z) * Math.log10(C_out / C_in);
+
+      valorOut.textContent = `${C_out}`;
+      valorIn.textContent = `${C_in}`;
+      potencialValor.textContent = `${E_ion.toFixed(2)} mV`;
+
+      updateVisuals(ion, C_out, C_in);
+    }
+
+    function updateVisuals(ion, C_out, C_in) {
+      drawIons(celulaOut, C_out, ionData[ion].color);
+      drawIons(celulaIn, C_in, ionData[ion].color);
+
+      const direccionQuimica = (C_out > C_in) ? 1 : -1;
+
+      fQuimica.style.transform = `translateX(-50%) scaleX(${direccionQuimica})`;
+      fElectrica.style.transform = `translateX(-50%) scaleX(${-direccionQuimica})`;
+    }
+
+    function drawIons(container, count, color) {
+      const label = container.querySelector('.label-zona');
+      container.innerHTML = '';
+      if (label) container.appendChild(label);
+
+      const maxDots = 75;
+      const numDots = Math.ceil((count / 150) * maxDots);
+      for (let i = 0; i < numDots; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'ion-dot';
+        dot.style.backgroundColor = color;
+        dot.style.top = `${Math.random() * 95}%`;
+        dot.style.left = `${Math.random() * 95}%`;
+        container.appendChild(dot);
+      }
+    }
+
+    // --- Event Listeners ---
+    // Al cambiar el ión, se actualizan las concentraciones
+    ionSelect.addEventListener('input', actualizarConcentraciones);
+    // Al mover los sliders, solo se actualiza el cálculo
+    concOutSlider.addEventListener('input', updateSimulator);
+    concInSlider.addEventListener('input', updateSimulator);
+
+    // --- Initial Load ---
+    window.addEventListener('load', updateSimulator);
+  </script>
+
+</body>
+
+</html>

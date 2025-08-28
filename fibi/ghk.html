@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador GHK Intuitivo (Tira y Afloja)</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f4f7f9;
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    #simulador-container {
+      background-color: #ffffff;
+      padding: 2.5rem;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 1100px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 0.5rem;
+    }
+
+    p.descripcion {
+      text-align: center;
+      color: #666;
+      margin-bottom: 2.5rem;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    #panel-principal {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      align-items: stretch;
+    }
+
+    #controles {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .ion-grupo {
+      padding: 1.5rem;
+      border-radius: 10px;
+      border: 2px solid;
+    }
+
+    .ion-grupo h3 {
+      margin-top: 0;
+      margin-bottom: 1.5rem;
+      font-size: 1.5rem;
+    }
+
+    .control-fila {
+      display: grid;
+      grid-template-columns: 80px 1fr 50px;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 1rem;
+    }
+
+    .control-fila label {
+      font-weight: bold;
+    }
+
+    .control-fila span {
+      font-weight: bold;
+      font-family: monospace;
+    }
+
+    #grupo-k {
+      border-color: #e9d5ff;
+      color: #8e44ad;
+    }
+
+    #grupo-na {
+      border-color: #d6eaf8;
+      color: #2980b9;
+    }
+
+    #grupo-cl {
+      border-color: #d4efdf;
+      color: #27ae60;
+    }
+
+    /* --- VISUALIZACIÓN --- */
+    #visualizacion {
+      display: flex;
+      flex-direction: column;
+      padding-left: 2rem;
+    }
+
+    #voltage-meter {
+      flex-grow: 1;
+      position: relative;
+      background: linear-gradient(to top, #34495e, #5d6d7e, #85929e);
+      border-radius: 10px;
+      border: 2px solid #bdc3c7;
+    }
+
+    .voltage-marker {
+      position: absolute;
+      width: 100%;
+      height: 3px;
+      transition: top 0.2s ease-out;
+      display: flex;
+      align-items: center;
+    }
+
+    .voltage-marker::after {
+      content: attr(data-label);
+      position: absolute;
+      left: 105%;
+      font-weight: bold;
+      font-size: 1.1rem;
+      color: white;
+      background-color: rgba(0, 0, 0, 0.5);
+      padding: 4px 8px;
+      border-radius: 5px;
+      white-space: nowrap;
+    }
+
+    #marker-vm {
+      height: 4px;
+      background-color: #f1c40f;
+      z-index: 10;
+    }
+
+    #marker-vm::after {
+      color: #f1c40f;
+    }
+
+    #marker-k {
+      background-color: #c39bd3;
+    }
+
+    #marker-na {
+      background-color: #85c1e9;
+    }
+
+    #marker-cl {
+      background-color: #7dcea0;
+    }
+
+    #tug-of-war-svg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    .tug-line {
+      stroke-linecap: round;
+      transition: all 0.2s ease-out;
+    }
+
+    #explicacion {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: #ecf0f1;
+      border-left: 5px solid #7f8c8d;
+      border-radius: 5px;
+    }
+
+    @media (max-width: 900px) {
+      #panel-principal {
+        grid-template-columns: 1fr;
+      }
+
+      #visualizacion {
+        padding-left: 0;
+        margin-top: 2rem;
+        min-height: 400px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="simulador-container">
+    <h1>Simulador GHK Intuitivo: Tira y Afloja</h1>
+    <p class="descripcion">La permeabilidad (P) de un ión es su "fuerza". Aumenta la permeabilidad de un ión para ver
+      cómo "arrastra" el potencial de membrana (línea amarilla) hacia su propio potencial de equilibrio.</p>
+
+    <div id="panel-principal">
+      <div id="controles">
+        <div id="grupo-k" class="ion-grupo">
+          <h3>Potasio (K⁺)</h3>
+        </div>
+        <div id="grupo-na" class="ion-grupo">
+          <h3>Sodio (Na⁺)</h3>
+        </div>
+        <div id="grupo-cl" class="ion-grupo">
+          <h3>Cloro (Cl⁻)</h3>
+        </div>
+      </div>
+
+      <div id="visualizacion">
+        <div id="voltage-meter">
+          <svg id="tug-of-war-svg">
+            <line id="line-k" class="tug-line" x1="50%" y1="50%" x2="50%" y2="50%" stroke="#c39bd3" />
+            <line id="line-na" class="tug-line" x1="50%" y1="50%" x2="50%" y2="50%" stroke="#85c1e9" />
+            <line id="line-cl" class="tug-line" x1="50%" y1="50%" x2="50%" y2="50%" stroke="#7dcea0" />
+          </svg>
+
+          <div id="marker-vm" class="voltage-marker"></div>
+          <div id="marker-k" class="voltage-marker"></div>
+          <div id="marker-na" class="voltage-marker"></div>
+          <div id="marker-cl" class="voltage-marker"></div>
+        </div>
+        <div id="explicacion">Cargando...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const CONST_RT_F_LOG10 = 61.5;
+
+    const ionData = {
+      k: { name: 'K⁺', z: 1, defaults: { p: 1, out: 5, in: 140 } },
+      na: { name: 'Na⁺', z: 1, defaults: { p: 0.04, out: 145, in: 12 } },
+      cl: { name: 'Cl⁻', z: -1, defaults: { p: 0.45, out: 110, in: 10 } }
+    };
+
+    const elements = {
+      sliders: {}, values: {},
+      markers: {
+        vm: document.getElementById('marker-vm'),
+        k: document.getElementById('marker-k'),
+        na: document.getElementById('marker-na'),
+        cl: document.getElementById('marker-cl')
+      },
+      lines: {
+        k: document.getElementById('line-k'),
+        na: document.getElementById('line-na'),
+        cl: document.getElementById('line-cl')
+      },
+      explanation: document.getElementById('explicacion')
+    };
+
+    // --- INICIALIZACIÓN DINÁMICA DE CONTROLES ---
+    Object.keys(ionData).forEach(ion => {
+      const grupo = document.getElementById(`grupo-${ion}`);
+      const params = { p: `P${ion}`, out: `[${ion.toUpperCase()}]out`, in: `[${ion.toUpperCase()}]in` };
+
+      Object.keys(params).forEach(param => {
+        const id = `${ion}-${param}`;
+        const max = (param === 'p') ? 1 : 150;
+        const step = (param === 'p') ? 0.01 : 1;
+
+        grupo.insertAdjacentHTML('beforeend', `
+                    <div class="control-fila">
+                        <label>${params[param]}</label>
+                        <input type="range" id="${id}" min="0" max="${max}" value="${ionData[ion].defaults[param]}" step="${step}">
+                        <span id="val-${id}"></span>
+                    </div>`);
+
+        elements.sliders[id] = document.getElementById(id);
+        elements.values[id] = document.getElementById(`val-${id}`);
+      });
+    });
+
+    const VOLTAGE_MIN = -100; // mV
+    const VOLTAGE_MAX = 80;   // mV
+    const VOLTAGE_RANGE = VOLTAGE_MAX - VOLTAGE_MIN;
+
+    function voltageToPercent(v) {
+      const percent = ((v - VOLTAGE_MIN) / VOLTAGE_RANGE) * 100;
+      return 100 - Math.max(0, Math.min(100, percent)); // Invertido porque top:0 es arriba
+    }
+
+    function calculateNernst(z, c_out, c_in) {
+      return (CONST_RT_F_LOG10 / z) * Math.log10(c_out / c_in);
+    }
+
+    function updateSimulator() {
+      const p = {}, c = {};
+      Object.keys(elements.sliders).forEach(id => {
+        const [ion, param] = id.split('-');
+        const value = parseFloat(elements.sliders[id].value);
+        if (param === 'p') p[ion] = value; else c[`${ion}_${param}`] = value;
+        elements.values[id].textContent = (param === 'p') ? value.toFixed(2) : value;
+      });
+
+      const e_nernst = {
+        k: calculateNernst(ionData.k.z, c.k_out, c.k_in),
+        na: calculateNernst(ionData.na.z, c.na_out, c.na_in),
+        cl: calculateNernst(ionData.cl.z, c.cl_out, c.cl_in)
+      };
+
+      const numerator = (p.k * c.k_out) + (p.na * c.na_out) + (p.cl * c.cl_in);
+      const denominator = (p.k * c.k_in) + (p.na * c.na_in) + (p.cl * c.cl_out);
+      const vm_ghk = CONST_RT_F_LOG10 * Math.log10(numerator / denominator);
+
+      updateVisuals(p, vm_ghk, e_nernst);
+      updateExplanation(p, vm_ghk, e_nernst);
+    }
+
+    function updateVisuals(p, vm, e_nernst) {
+      const vm_pos = voltageToPercent(vm);
+      elements.markers.vm.style.top = `${vm_pos}%`;
+      elements.markers.vm.setAttribute('data-label', `Vₘ = ${vm.toFixed(1)} mV`);
+
+      Object.keys(e_nernst).forEach(ion => {
+        const en_pos = voltageToPercent(e_nernst[ion]);
+        elements.markers[ion].style.top = `${en_pos}%`;
+        elements.markers[ion].setAttribute('data-label', `E${ion} = ${e_nernst[ion].toFixed(1)} mV`);
+
+        const line = elements.lines[ion];
+        line.setAttribute('y1', `${vm_pos}%`);
+        line.setAttribute('y2', `${en_pos}%`);
+        line.style.strokeWidth = 1 + p[ion] * 20; // La fuerza visual de la línea
+        line.style.opacity = 0.2 + p[ion] * 0.8;
+      });
+    }
+
+    function updateExplanation(p, vm, en) {
+      let maxP = -1, dominantIonKey = '';
+      for (const ion in p) {
+        if (p[ion] > maxP) {
+          maxP = p[ion];
+          dominantIonKey = ion;
+        }
+      }
+      const dominantIonName = ionData[dominantIonKey].name;
+      const dominantIonPotential = en[dominantIonKey];
+      elements.explanation.innerHTML = `Actualmente, la membrana es más permeable al <strong>${dominantIonName}</strong>. Por eso, Vₘ (${vm.toFixed(1)} mV) es "arrastrado" hacia su Eᵢₒₙ (${dominantIonPotential.toFixed(1)} mV).`;
+    }
+
+    Object.values(elements.sliders).forEach(slider => slider.addEventListener('input', updateSimulator));
+    window.addEventListener('load', updateSimulator);
+  </script>
+</body>
+
+</html>

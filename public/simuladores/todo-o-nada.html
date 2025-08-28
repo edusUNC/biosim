@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador: Ley del Todo o Nada</title>
+  <style>
+    /* --- Estilos Generales --- */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f0f4f8;
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    /* --- Contenedor Principal --- */
+    #simulador-container {
+      background-color: #ffffff;
+      padding: 2.5rem;
+      border-radius: 15px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 700px;
+      text-align: center;
+    }
+
+    h1 {
+      color: #1a237e;
+      margin-bottom: 0.5rem;
+    }
+
+    p {
+      color: #555;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+
+    /* --- Panel de Control --- */
+    #controles {
+      margin-bottom: 2rem;
+      padding: 1.5rem;
+      background-color: #e8eaf6;
+      border-radius: 10px;
+    }
+
+    label {
+      font-weight: bold;
+      font-size: 1.1rem;
+      margin-right: 10px;
+    }
+
+    #stimulus-slider {
+      width: 60%;
+      cursor: pointer;
+    }
+
+    #slider-value {
+      display: inline-block;
+      min-width: 50px;
+      font-weight: bold;
+      color: #3f51b5;
+    }
+
+    button {
+      background-color: #3f51b5;
+      color: white;
+      border: none;
+      padding: 12px 25px;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+      margin-top: 1rem;
+    }
+
+    button:hover {
+      background-color: #303f9f;
+      transform: translateY(-2px);
+    }
+
+    /* --- Visualización del Gráfico --- */
+    #grafico-container {
+      width: 100%;
+      height: 250px;
+      background-color: #f5f5f5;
+      border: 2px solid #ddd;
+      border-radius: 10px;
+      position: relative;
+      margin-top: 2rem;
+      overflow: hidden;
+    }
+
+    .linea-potencial {
+      position: absolute;
+      background-color: #5c6bc0;
+      height: 4px;
+      width: 100%;
+      left: 0;
+      transition: all 0.2s ease-out;
+    }
+
+    #linea-reposo {
+      bottom: 30%;
+      /* Corresponde a -70mV */
+      background-color: #90a4ae;
+    }
+
+    #linea-umbral {
+      bottom: 50%;
+      /* Corresponde a -55mV */
+      background-color: #ff7043;
+      opacity: 0.5;
+      border-top: 2px dashed #d84315;
+    }
+
+    #potencial {
+      bottom: 30%;
+      /* Inicia en reposo */
+      background-color: #3f51b5;
+    }
+
+    /* Animación del Potencial de Acción */
+    #potencial.fire {
+      animation: action-potential 1s ease-in-out forwards;
+    }
+
+    @keyframes action-potential {
+      0% {
+        bottom: 30%;
+        /* Reposo */
+      }
+
+      5% {
+        bottom: 50%;
+        /* Alcanza umbral */
+      }
+
+      30% {
+        bottom: 95%;
+        /* Pico del potencial (+40mV) */
+      }
+
+      50% {
+        bottom: 10%;
+        /* Hiperpolarización */
+      }
+
+      100% {
+        bottom: 30%;
+        /* Vuelta al reposo */
+      }
+    }
+
+    /* Animación del Estímulo Subumbral */
+    #potencial.sub-threshold {
+      animation: sub-threshold-potential 0.8s ease-out forwards;
+    }
+
+    @keyframes sub-threshold-potential {
+      0% {
+        bottom: 30%;
+        /* Reposo */
+      }
+
+      30% {
+        bottom: 45%;
+        /* Pico subumbral */
+      }
+
+      100% {
+        bottom: 30%;
+        /* Vuelta al reposo */
+      }
+    }
+
+
+    .label-grafico {
+      position: absolute;
+      left: 5px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: white;
+      background-color: rgba(0, 0, 0, 0.5);
+      padding: 2px 5px;
+      border-radius: 3px;
+    }
+
+    #label-reposo {
+      bottom: 30%;
+    }
+
+    #label-umbral {
+      bottom: 50%;
+    }
+
+
+    /* --- Mensaje de Resultado --- */
+    #mensaje {
+      margin-top: 1.5rem;
+      font-size: 1.2rem;
+      font-weight: bold;
+      height: 30px;
+      transition: color 0.3s ease;
+    }
+
+    #mensaje.exito {
+      color: #4caf50;
+      /* Verde */
+    }
+
+    #mensaje.fallo {
+      color: #f44336;
+      /* Rojo */
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="simulador-container">
+    <h1>Simulador: Ley del "Todo o Nada"</h1>
+    <p>Ajusta la intensidad del estímulo y aplícalo a la neurona. Si el estímulo alcanza o supera el <strong>Umbral
+        (-55mV)</strong>, se disparará un potencial de acción completo. De lo contrario, no ocurrirá nada.</p>
+
+    <div id="controles">
+      <label for="stimulus-slider">Intensidad del Estímulo:</label>
+      <input type="range" id="stimulus-slider" min="0" max="100" value="30">
+      <span id="slider-value">30</span>
+      <br>
+      <button id="stimulate-button">Aplicar Estímulo</button>
+    </div>
+
+    <div id="grafico-container">
+      <div id="linea-reposo" class="linea-potencial"></div>
+      <div id="label-reposo" class="label-grafico">Reposo (-70mV)</div>
+
+      <div id="linea-umbral" class="linea-potencial"></div>
+      <div id="label-umbral" class="label-grafico">Umbral (-55mV)</div>
+
+      <div id="potencial" class="linea-potencial"></div>
+    </div>
+
+    <div id="mensaje">Presiona el botón para comenzar.</div>
+  </div>
+
+  <script>
+    // --- Obtener elementos del DOM ---
+    const slider = document.getElementById('stimulus-slider');
+    const sliderValue = document.getElementById('slider-value');
+    const stimulateButton = document.getElementById('stimulate-button');
+    const mensaje = document.getElementById('mensaje');
+    const potencial = document.getElementById('potencial');
+
+    // --- Constantes fisiológicas (valores de referencia) ---
+    const UMBRAL_INTENSIDAD = 55; // El valor del slider necesario para alcanzar el umbral
+
+    // --- Lógica del Simulador ---
+
+    // Actualizar el valor numérico junto al slider
+    slider.addEventListener('input', () => {
+      sliderValue.textContent = slider.value;
+    });
+
+    // Manejar el clic del botón
+    stimulateButton.addEventListener('click', () => {
+      const intensidad = parseInt(slider.value);
+
+      // Prevenir animaciones superpuestas
+      potencial.className = 'linea-potencial';
+      void potencial.offsetWidth; // Truco para reiniciar la animación CSS
+
+      if (intensidad >= UMBRAL_INTENSIDAD) {
+        // ÉXITO: Se genera el Potencial de Acción
+        mensaje.textContent = '¡Potencial de Acción Generado!';
+        mensaje.className = 'exito';
+        potencial.classList.add('fire');
+      } else {
+        // FALLO: Estímulo subumbral
+        mensaje.textContent = 'Estímulo muy débil. No se alcanzó el umbral.';
+        mensaje.className = 'fallo';
+
+        // Aplicamos una animación más pequeña para el estímulo fallido
+        // La altura de esta animación depende de qué tan cerca estuvo del umbral
+        const cercania = intensidad / UMBRAL_INTENSIDAD; // Valor entre 0 y 1
+        const alturaSubumbral = 30 + (20 * cercania); // Sube entre 30% y 50%
+
+        // Creamos una animación dinámica para el estímulo subumbral
+        // (Aunque para simplicidad, una clase fija funciona bien también)
+        potencial.classList.add('sub-threshold');
+      }
+    });
+
+  </script>
+
+</body>
+
+</html>

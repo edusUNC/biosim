@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador Interactivo de Eje Cardíaco</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f0f2f5;
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      padding: 20px;
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1200px;
+      background-color: #fff;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+
+    h1 {
+      color: #0d47a1;
+      /* Azul oscuro */
+    }
+
+    .main-content {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 40px;
+      margin-top: 20px;
+    }
+
+    /* Contenedor del simulador principal (círculo) */
+    .simulator {
+      position: relative;
+      width: 500px;
+      height: 500px;
+    }
+
+    #axis-canvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Contenedor para las derivaciones resultantes */
+    .leads-display {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+      width: 300px;
+    }
+
+    .lead-box {
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 5px;
+      background-color: #fafafa;
+    }
+
+    .lead-box .lead-name {
+      font-weight: bold;
+      font-size: 1.2em;
+      color: #555;
+      margin-bottom: 5px;
+    }
+
+    .lead-box canvas {
+      width: 100%;
+      height: 60px;
+      background-color: white;
+      border-radius: 4px;
+    }
+
+    /* Panel de información */
+    .info-panel {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #e3f2fd;
+      border-radius: 8px;
+      font-size: 1.5em;
+      font-weight: bold;
+    }
+
+    #angle-display {
+      color: #0d47a1;
+    }
+
+    #axis-interpretation {
+      margin-top: 10px;
+      color: #d32f2f;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <h1>Simulador Interactivo de Eje Cardíaco</h1>
+    <p>Arrastra la punta de la flecha (vector cardíaco) y observa cómo cambia el complejo QRS en las 6 derivaciones del
+      plano frontal.</p>
+
+    <div class="main-content">
+      <div class="simulator">
+        <canvas id="axis-canvas" width="500" height="500"></canvas>
+      </div>
+
+      <div class="leads-display">
+      </div>
+    </div>
+
+    <div class="info-panel">
+      <div>Ángulo del Eje: <span id="angle-display">--°</span></div>
+      <div id="axis-interpretation">--</div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // --- CONFIGURACIÓN Y REFERENCIAS ---
+      const canvas = document.getElementById('axis-canvas');
+      const ctx = canvas.getContext('2d');
+      const angleDisplay = document.getElementById('angle-display');
+      const axisInterpretation = document.getElementById('axis-interpretation');
+      const leadsDisplayContainer = document.querySelector('.leads-display');
+
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const radius = canvas.width / 2 - 40; // Radio del círculo
+      const vectorLength = radius * 0.8; // Longitud del vector cardiaco
+
+      let currentAngle = 60; // Ángulo inicial (eje normal)
+      let isDragging = false;
+
+      const leads = {
+        'DI': { angle: 0, canvas: null, ctx: null },
+        'DII': { angle: 60, canvas: null, ctx: null },
+        'DIII': { angle: 120, canvas: null, ctx: null },
+        'aVR': { angle: -150, canvas: null, ctx: null },
+        'aVL': { angle: -30, canvas: null, ctx: null },
+        'aVF': { angle: 90, canvas: null, ctx: null }
+      };
+
+      // --- INICIALIZACIÓN ---
+      function init() {
+        // Crear los canvas para cada derivación
+        for (const name in leads) {
+          const lead = leads[name];
+          const box = document.createElement('div');
+          box.className = 'lead-box';
+          box.innerHTML = `<div class="lead-name">${name}</div>`;
+          const leadCanvas = document.createElement('canvas');
+          leadCanvas.width = 150;
+          leadCanvas.height = 60;
+          box.appendChild(leadCanvas);
+          leadsDisplayContainer.appendChild(box);
+
+          lead.canvas = leadCanvas;
+          lead.ctx = leadCanvas.getContext('2d');
+        }
+
+        // Event listeners para la interactividad del vector
+        canvas.addEventListener('mousedown', startDrag);
+        canvas.addEventListener('mousemove', drag);
+        canvas.addEventListener('mouseup', endDrag);
+        canvas.addEventListener('mouseout', endDrag);
+
+        // Dibujar todo por primera vez
+        drawAll();
+      }
+
+      // --- FUNCIONES DE DIBUJO PRINCIPALES ---
+
+      function drawAll() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawHexaxialSystem();
+        drawVector();
+        updateLeadDisplays();
+        updateInfoPanel();
+      }
+
+      function drawHexaxialSystem() {
+        ctx.strokeStyle = '#e0e0e0';
+        ctx.lineWidth = 1;
+
+        // Dibuja el círculo exterior
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.stroke();
+
+        // Dibuja las líneas de las derivaciones
+        for (const name in leads) {
+          const angleRad = leads[name].angle * Math.PI / 180;
+          const endX = centerX + radius * Math.cos(angleRad);
+          const endY = centerY + radius * Math.sin(angleRad);
+
+          ctx.beginPath();
+          ctx.moveTo(centerX, centerY);
+          ctx.lineTo(endX, endY);
+          ctx.stroke();
+
+          // Dibuja las etiquetas
+          ctx.font = 'bold 14px sans-serif';
+          ctx.fillStyle = '#333';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          const labelX = centerX + (radius + 20) * Math.cos(angleRad);
+          const labelY = centerY + (radius + 20) * Math.sin(angleRad);
+          ctx.fillText(name, labelX, labelY);
+        }
+      }
+
+      function drawVector() {
+        const angleRad = currentAngle * Math.PI / 180;
+        const endX = centerX + vectorLength * Math.cos(angleRad);
+        const endY = centerY + vectorLength * Math.sin(angleRad);
+
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(endX, endY);
+        ctx.strokeStyle = '#d32f2f';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // Dibujar la punta de la flecha
+        const arrowSize = 15;
+        ctx.save();
+        ctx.translate(endX, endY);
+        ctx.rotate(angleRad);
+        ctx.fillStyle = '#d32f2f';
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-arrowSize, -arrowSize / 2);
+        ctx.lineTo(-arrowSize, arrowSize / 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function updateLeadDisplays() {
+        for (const name in leads) {
+          const lead = leads[name];
+          const vectorAngleRad = currentAngle * Math.PI / 180;
+          const leadAngleRad = lead.angle * Math.PI / 180;
+
+          // La magia está aquí: Proyección del vector usando el coseno del ángulo entre ellos
+          const projection = Math.cos(vectorAngleRad - leadAngleRad);
+
+          drawQRS(lead.ctx, projection);
+        }
+      }
+
+      function drawQRS(leadCtx, projection) {
+        leadCtx.clearRect(0, 0, leadCtx.canvas.width, leadCtx.canvas.height);
+        leadCtx.beginPath();
+        leadCtx.strokeStyle = 'black';
+        leadCtx.lineWidth = 2;
+
+        const w = leadCtx.canvas.width;
+        const h = leadCtx.canvas.height;
+        const midY = h / 2;
+        const maxAmp = h * 0.45; // Amplitud máxima del QRS
+
+        const amp = maxAmp * projection;
+
+        // Dibuja una línea isoeléctrica base
+        leadCtx.moveTo(0, midY);
+        leadCtx.lineTo(w * 0.35, midY);
+
+        // Dibuja el complejo QRS basado en la proyección
+        if (Math.abs(amp) < 2) { // Isoeléctrico
+          leadCtx.lineTo(w * 0.45, midY - 10);
+          leadCtx.lineTo(w * 0.55, midY + 10);
+        } else if (amp > 0) { // Positivo (Onda R)
+          leadCtx.lineTo(w * 0.45, midY);
+          leadCtx.lineTo(w * 0.5, midY - amp);
+          leadCtx.lineTo(w * 0.55, midY);
+        } else { // Negativo (Onda S o QS)
+          leadCtx.lineTo(w * 0.45, midY);
+          leadCtx.lineTo(w * 0.5, midY - amp); // -amp porque amp es negativo
+          leadCtx.lineTo(w * 0.55, midY);
+        }
+
+        leadCtx.lineTo(w, midY);
+        leadCtx.stroke();
+      }
+
+      function updateInfoPanel() {
+        angleDisplay.textContent = `${Math.round(currentAngle)}°`;
+
+        let interpretation = '';
+        if (currentAngle >= -30 && currentAngle <= 90) {
+          interpretation = 'Eje Normal';
+        } else if (currentAngle < -30 && currentAngle >= -90) {
+          interpretation = 'Eje Desviado a la Izquierda';
+        } else if (currentAngle > 90 && currentAngle <= 180) {
+          interpretation = 'Eje Desviado a la Derecha';
+        } else {
+          interpretation = 'Desviación Extrema';
+        }
+        axisInterpretation.textContent = interpretation;
+      }
+
+      // --- FUNCIONES DE INTERACTIVIDAD ---
+      function getMouseAngle(event) {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+        const angleRad = Math.atan2(mouseY - centerY, mouseX - centerX);
+        return angleRad * 180 / Math.PI;
+      }
+
+      function startDrag(event) {
+        isDragging = true;
+        currentAngle = getMouseAngle(event);
+        drawAll();
+      }
+
+      function drag(event) {
+        if (isDragging) {
+          currentAngle = getMouseAngle(event);
+          drawAll();
+        }
+      }
+
+      function endDrag() {
+        isDragging = false;
+      }
+
+      // --- Iniciar la aplicación ---
+      init();
+    });
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador Vestibular 4.1 - Final Corregido</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background-color: #050510;
+        }
+
+        #info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 300px;
+            background: rgba(5, 5, 25, 0.85);
+            border: 1px solid #4d70ff;
+            border-radius: 10px;
+            color: #eee;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(77, 112, 255, 0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        h1 {
+            color: #879fff;
+            margin: 0 0 15px 0;
+            font-size: 1.5rem;
+            text-align: center;
+        }
+
+        .motion-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        button {
+            padding: 10px;
+            border: 1px solid #4d70ff;
+            background: transparent;
+            color: #879fff;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #4d70ff;
+            color: #fff;
+        }
+
+        button:disabled {
+            border-color: #555;
+            color: #555;
+            cursor: not-allowed;
+            background: transparent;
+        }
+
+        #description-text {
+            line-height: 1.5;
+            min-height: 80px;
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="info-panel">
+        <h1>Implante Vestibular</h1>
+        <div class="motion-buttons">
+            <button data-motion="left">Girar Izq.</button>
+            <button data-motion="right">Girar Der.</button>
+            <button data-motion="forward">Inclinar Adelante</button>
+            <button data-motion="side">Inclinar Lado</button>
+            <button data-motion="accel" style="grid-column: 1 / -1;">Acelerar</button>
+        </div>
+        <p id="description-text">Usa el mouse para explorar la escena 3D. <br> Selecciona un movimiento para empezar.
+        </p>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
+        import { OrbitControls } from 'https://cdn.skypack.dev/three@0.132.2/examples/jsm/controls/OrbitControls.js';
+
+        // --- 1. CONFIGURACIÓN ESENCIAL ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 2, 22);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        // --- 2. LUCES Y CONTROLES ---
+        scene.add(new THREE.AmbientLight(0xcccccc, 1.5));
+        const pointLight = new THREE.PointLight(0xffffff, 1);
+        pointLight.position.set(10, 10, 15);
+        scene.add(pointLight);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.target.set(0, 1, 0);
+
+        // --- 3. CREACIÓN DE OBJETOS 3D ---
+        const objects = {};
+        const canalMaterial = () => new THREE.MeshStandardMaterial({ color: 0xff40ff, emissive: 0x000000, roughness: 0.5 });
+
+        const headProfilePoints = [
+            new THREE.Vector2(3.5, -9), new THREE.Vector2(4.5, -8), new THREE.Vector2(5, -6),
+            new THREE.Vector2(5.2, -4), new THREE.Vector2(5, 0), new THREE.Vector2(4.5, 4),
+            new THREE.Vector2(3, 7), new THREE.Vector2(0, 9.5), new THREE.Vector2(-3, 7),
+            new THREE.Vector2(-4.5, 4), new THREE.Vector2(-5, 0), new THREE.Vector2(-5.2, -4),
+            new THREE.Vector2(-5, -6), new THREE.Vector2(-4.2, -8), new THREE.Vector2(-4, -9),
+            new THREE.Vector2(-3.8, -10), new THREE.Vector2(-3.5, -11)
+        ];
+        const headGeometry = new THREE.BufferGeometry().setFromPoints(headProfilePoints);
+        objects.head = new THREE.Line(headGeometry, new THREE.LineBasicMaterial({ color: 0x4d70ff, transparent: true, opacity: 0.3 }));
+        objects.head.position.set(0, 1, 0);
+        scene.add(objects.head);
+
+        objects.cerebellum = new THREE.Mesh(
+            new THREE.SphereGeometry(1.5, 32, 32),
+            new THREE.MeshStandardMaterial({ color: 0x20a0ff, emissive: 0x000000, transparent: true, opacity: 0.5 })
+        );
+        objects.cerebellum.position.set(0, -3, -3);
+        scene.add(objects.cerebellum);
+
+        const innerEar = new THREE.Group();
+        objects.sacculeUtricle = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 32), canalMaterial());
+        const canalGeometry = new THREE.TorusGeometry(1.2, 0.15, 16, 100, Math.PI);
+        objects.horizontalCanal = new THREE.Mesh(canalGeometry, canalMaterial());
+        objects.horizontalCanal.rotation.set(Math.PI / 2, 0, 0);
+        objects.anteriorCanal = new THREE.Mesh(canalGeometry, canalMaterial());
+        objects.anteriorCanal.rotation.set(0, Math.PI / 2, 0);
+        objects.posteriorCanal = new THREE.Mesh(canalGeometry, canalMaterial());
+        objects.posteriorCanal.rotation.set(0, 0, -Math.PI / 4);
+        innerEar.add(objects.sacculeUtricle, objects.horizontalCanal, objects.anteriorCanal, objects.posteriorCanal);
+        innerEar.position.set(0, 1, 0);
+        scene.add(innerEar);
+
+        objects.processor = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1, 0.2), new THREE.MeshStandardMaterial({ color: 0xeeeeee, emissive: 0x000000 }));
+        objects.processor.position.set(5.5, 0, 0);
+        scene.add(objects.processor);
+
+        objects.receiver = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.2, 32), new THREE.MeshStandardMaterial({ color: 0xeeeeee, emissive: 0x000000 }));
+        objects.receiver.position.set(4, 1, 0);
+        objects.receiver.rotation.z = Math.PI / 2;
+        scene.add(objects.receiver);
+
+        const cableCurve = new THREE.CatmullRomCurve3([new THREE.Vector3(4, 1, 0), new THREE.Vector3(3, 1.5, 0), new THREE.Vector3(1.5, 0.5, 0), innerEar.position]);
+        objects.cable = new THREE.Mesh(new THREE.TubeGeometry(cableCurve, 64, 0.05, 8, false), new THREE.MeshStandardMaterial({ color: 0x101020 }));
+        scene.add(objects.cable);
+
+        const neuralPathCurve = new THREE.CatmullRomCurve3([innerEar.position.clone(), new THREE.Vector3(-1, -1, -1), objects.cerebellum.position.clone()]);
+        objects.neuralPath = new THREE.Mesh(new THREE.TubeGeometry(neuralPathCurve, 64, 0.08, 8, false), new THREE.MeshStandardMaterial({ color: 0x4d70ff, emissive: 0x000000, transparent: true, opacity: 0.4 }));
+        scene.add(objects.neuralPath);
+
+        const PARTICLE_COUNT = 500;
+        const particlesGeometry = new THREE.BufferGeometry();
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(PARTICLE_COUNT * 3), 3));
+        const particlesMaterial = new THREE.PointsMaterial({ color: 0xfaff00, size: 0.15, transparent: true, blending: THREE.AdditiveBlending });
+        const particleSystem = new THREE.Points(particlesGeometry, particlesMaterial);
+        particleSystem.visible = false;
+        scene.add(particleSystem);
+
+        // --- 5. LÓGICA DE LA SIMULACIÓN ---
+        const buttons = document.querySelectorAll('button');
+        const descText = document.getElementById('description-text');
+        let isSimulating = false;
+
+        const delay = ms => new Promise(res => setTimeout(res, ms));
+
+        function highlight(object, active = true, color = 0x4d70ff) {
+            if (object && object.material && object.material.emissive) {
+                object.material.emissive.setHex(active ? color : 0x000000);
+            }
+        }
+
+        async function runParticleAnimation(pathCurve, duration) {
+            particleSystem.visible = true;
+            const startTime = Date.now();
+            let animationFrameId;
+
+            return new Promise(resolve => {
+                const updateParticles = () => {
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const positions = particleSystem.geometry.attributes.position.array;
+                    for (let i = 0; i < PARTICLE_COUNT; i++) {
+                        const randomProgress = (progress + (Math.random() * 0.2)) % 1;
+                        const currentPos = pathCurve.getPointAt(randomProgress);
+                        positions[i * 3] = currentPos.x;
+                        positions[i * 3 + 1] = currentPos.y;
+                        positions[i * 3 + 2] = currentPos.z;
+                    }
+                    particleSystem.geometry.attributes.position.needsUpdate = true;
+                    if (progress < 1) {
+                        animationFrameId = requestAnimationFrame(updateParticles);
+                    } else {
+                        particleSystem.visible = false;
+                        cancelAnimationFrame(animationFrameId);
+                        resolve();
+                    }
+                };
+                updateParticles();
+            });
+        }
+
+        async function startSimulation(motionType) {
+            if (isSimulating) return;
+            isSimulating = true;
+            buttons.forEach(b => b.disabled = true);
+
+            Object.values(objects).forEach(obj => highlight(obj, false));
+
+            descText.innerText = "1. Detección: El procesador externo capta el movimiento.";
+            highlight(objects.processor);
+            await delay(1500);
+
+            descText.innerText = "2. Transmisión: La señal se envía al receptor interno.";
+            highlight(objects.processor, false);
+            highlight(objects.receiver);
+            const wirelessPath = new THREE.LineCurve3(objects.processor.position, objects.receiver.position);
+            await runParticleAnimation(wirelessPath, 1500);
+
+            descText.innerText = "3. Impulso Eléctrico: La señal viaja por el electrodo.";
+            highlight(objects.receiver, false);
+            highlight(objects.cable, true, 0x879fff);
+            await runParticleAnimation(cableCurve, 1500);
+
+            let targetObject;
+            switch (motionType) {
+                case 'left': case 'right': targetObject = objects.horizontalCanal; break;
+                case 'forward': targetObject = objects.anteriorCanal; break;
+                case 'side': targetObject = objects.posteriorCanal; break;
+                case 'accel': targetObject = objects.sacculeUtricle; break;
+            }
+
+            descText.innerText = "4. Estimulación: Se activa el nervio vestibular.";
+            highlight(objects.cable, false);
+            highlight(targetObject, true, 0xfaff00);
+            await delay(2000);
+
+            descText.innerText = "5. Vía Neuronal: El impulso viaja al cerebelo.";
+            highlight(targetObject, false);
+            highlight(objects.neuralPath, true, 0x879fff);
+            await runParticleAnimation(neuralPathCurve, 1500);
+
+            descText.innerText = "6. Procesamiento: El cerebelo recibe la señal.";
+            highlight(objects.neuralPath, false);
+            highlight(objects.cerebellum, true, 0x879fff);
+            await delay(2500);
+
+            highlight(objects.cerebellum, false);
+            descText.innerHTML = "Simulación completa. <br> Explora la escena.";
+            buttons.forEach(b => b.disabled = false);
+            isSimulating = false;
+        }
+
+        buttons.forEach(btn => btn.addEventListener('click', () => startSimulation(btn.dataset.motion)));
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+
+</html>

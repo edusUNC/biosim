@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Juego de ECG - Modo Competencia</title>
+  <style>
+    /* --- ESTILOS GENERALES (similares a la V1 pero con ajustes) --- */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f0f2f5;
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1100px;
+      background-color: #fff;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+
+    h1 {
+      color: #d32f2f;
+      margin-bottom: 10px;
+    }
+
+    p {
+      margin-bottom: 20px;
+      font-size: 1.1em;
+    }
+
+    /* --- ESTILOS DE PANTALLAS (Setup, Juego, Resultados) --- */
+    .screen {
+      display: none;
+    }
+
+    /* Ocultar todas las pantallas por defecto */
+    .screen.active {
+      display: block;
+    }
+
+    /* Mostrar solo la pantalla activa */
+
+    /* --- PANTALLA DE CONFIGURACIÓN --- */
+    #player-names {
+      margin-top: 20px;
+    }
+
+    .player-input {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+
+    .player-input label {
+      margin-right: 10px;
+      font-weight: bold;
+    }
+
+    .player-input input {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    /* --- PANTALLA DE JUEGO --- */
+    .game-stats {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      background-color: #e3f2fd;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 1.4em;
+      font-weight: bold;
+    }
+
+    #current-player-name {
+      color: #1976d2;
+    }
+
+    #timer {
+      color: #d32f2f;
+    }
+
+    #score {
+      color: #388e3c;
+    }
+
+    /* --- PANTALLA DE RESULTADOS --- */
+    #results-list {
+      list-style-type: none;
+      padding: 0;
+      font-size: 1.5em;
+    }
+
+    #results-list li {
+      background-color: #f5f5f5;
+      margin: 10px 0;
+      padding: 15px;
+      border-radius: 8px;
+    }
+
+    .winner {
+      color: #d4af37;
+      /* Color dorado */
+      font-weight: bold;
+    }
+
+    /* --- ESTILOS DEL PAPEL Y CONTROLES (reutilizados) --- */
+    .ecg-paper {
+      position: relative;
+      background-color: #fbe9e7;
+      border: 1px solid #e0e0e0;
+    }
+
+    canvas#ecg-canvas {
+      display: block;
+    }
+
+    .controls {
+      margin-top: 25px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    .input-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .input-group label {
+      font-weight: bold;
+    }
+
+    .input-group input {
+      width: 80px;
+      padding: 10px;
+      border: 2px solid #ccc;
+      border-radius: 6px;
+      font-size: 1.2em;
+      text-align: center;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 1em;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .btn-primary {
+      background-color: #1976d2;
+      color: white;
+    }
+
+    .btn-secondary {
+      background-color: #6c757d;
+      color: white;
+    }
+
+    .btn-success {
+      background-color: #388e3c;
+      color: white;
+    }
+
+    #feedback {
+      margin-top: 20px;
+      font-size: 1.5em;
+      font-weight: bold;
+      height: 30px;
+    }
+
+    #feedback.success {
+      color: #388e3c;
+    }
+
+    #feedback.failure {
+      color: #d32f2f;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+
+    <div id="setup-screen" class="screen active">
+      <h1>Modo Competencia de ECG</h1>
+      <p>Ingresa los nombres de los jugadores y prepárense para el desafío. ¡El que acierte más frecuencias cardíacas en
+        60 segundos gana!</p>
+      <div class="input-group" style="justify-content: center;">
+        <label for="player-count">¿Cuántos jugadores?</label>
+        <input type="number" id="player-count" min="1" max="10" value="1">
+      </div>
+      <div id="player-names"></div>
+      <button id="start-game-btn" class="btn btn-success" style="margin-top: 20px; font-size: 1.2em;">¡Comenzar a
+        Jugar!</button>
+    </div>
+
+    <div id="game-screen" class="screen">
+      <div class="game-stats">
+        <div id="player-info">Jugador: <span id="current-player-name"></span></div>
+        <div id="timer">Tiempo: 60s</div>
+        <div id="score">Aciertos: 0</div>
+      </div>
+      <div class="ecg-paper">
+        <canvas id="ecg-canvas" width="1000" height="200"></canvas>
+      </div>
+      <div class="controls">
+        <div class="input-group">
+          <label for="hr-input">FC (lpm):</label>
+          <input type="number" id="hr-input" min="30" max="200">
+        </div>
+        <button class="btn btn-primary" id="verify-btn">Verificar</button>
+      </div>
+      <div id="feedback"></div>
+    </div>
+
+    <div id="results-screen" class="screen">
+      <h1>¡Juego Terminado!</h1>
+      <p>Estos son los resultados finales:</p>
+      <ul id="results-list"></ul>
+      <button id="play-again-btn" class="btn btn-secondary">Jugar de Nuevo</button>
+    </div>
+
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // --- REFERENCIAS A ELEMENTOS DEL DOM ---
+      const screens = {
+        setup: document.getElementById('setup-screen'),
+        game: document.getElementById('game-screen'),
+        results: document.getElementById('results-screen')
+      };
+      const playerCountInput = document.getElementById('player-count');
+      const playerNamesContainer = document.getElementById('player-names');
+      const startGameBtn = document.getElementById('start-game-btn');
+      const currentPlayerNameEl = document.getElementById('current-player-name');
+      const timerEl = document.getElementById('timer');
+      const scoreEl = document.getElementById('score');
+      const hrInput = document.getElementById('hr-input');
+      const verifyBtn = document.getElementById('verify-btn');
+      const feedbackEl = document.getElementById('feedback');
+      const resultsListEl = document.getElementById('results-list');
+      const playAgainBtn = document.getElementById('play-again-btn');
+      const canvas = document.getElementById('ecg-canvas');
+      const ctx = canvas.getContext('2d');
+
+      // --- CONFIGURACIÓN DEL PAPEL ECG (sin cambios) ---
+      const paperConfig = {
+        width: 1000, height: 200, mmPerSecond: 25, pxPerMm: 4, mVPerMm: 0.1,
+        get pixelsPerSecond() { return this.mmPerSecond * this.pxPerMm; },
+        get durationSeconds() { return this.width / this.pixelsPerSecond; }
+      };
+
+      // --- ESTADO DEL JUEGO ---
+      let gameState = {
+        players: [],
+        currentPlayerIndex: 0,
+        scores: [],
+        timerInterval: null,
+        timeLeft: 60
+      };
+      let actualHeartRate = 0;
+
+      // --- CAMBIO DE PANTALLAS ---
+      function showScreen(screenName) {
+        for (let key in screens) {
+          screens[key].classList.remove('active');
+        }
+        screens[screenName].classList.add('active');
+      }
+
+      // --- LÓGICA DE LA PANTALLA DE CONFIGURACIÓN ---
+      playerCountInput.addEventListener('change', () => {
+        const count = playerCountInput.value;
+        playerNamesContainer.innerHTML = '';
+        for (let i = 0; i < count; i++) {
+          const inputDiv = document.createElement('div');
+          inputDiv.classList.add('player-input');
+          inputDiv.innerHTML = `
+                    <label for="player${i + 1}">Jugador ${i + 1}:</label>
+                    <input type="text" id="player${i + 1}" value="Jugador ${i + 1}">
+                `;
+          playerNamesContainer.appendChild(inputDiv);
+        }
+      });
+      playerCountInput.dispatchEvent(new Event('change')); // Generar el primer campo de nombre
+
+      startGameBtn.addEventListener('click', () => {
+        const count = playerCountInput.value;
+        gameState.players = [];
+        gameState.scores = [];
+        for (let i = 0; i < count; i++) {
+          gameState.players.push(document.getElementById(`player${i + 1}`).value);
+          gameState.scores.push(0);
+        }
+        gameState.currentPlayerIndex = 0;
+        startTurn();
+      });
+
+      // --- LÓGICA DE LA PANTALLA DE JUEGO ---
+      function startTurn() {
+        showScreen('game');
+        currentPlayerNameEl.textContent = gameState.players[gameState.currentPlayerIndex];
+        gameState.timeLeft = 60;
+        updateGameStats();
+        startNewECG();
+
+        gameState.timerInterval = setInterval(() => {
+          gameState.timeLeft--;
+          updateGameStats();
+          if (gameState.timeLeft <= 0) {
+            endTurn();
+          }
+        }, 1000);
+      }
+
+      function endTurn() {
+        clearInterval(gameState.timerInterval);
+        alert(`¡Tiempo! ${gameState.players[gameState.currentPlayerIndex]} ha conseguido ${gameState.scores[gameState.currentPlayerIndex]} aciertos.`);
+
+        gameState.currentPlayerIndex++;
+        if (gameState.currentPlayerIndex < gameState.players.length) {
+          startTurn();
+        } else {
+          showResults();
+        }
+      }
+
+      function updateGameStats() {
+        timerEl.textContent = `Tiempo: ${gameState.timeLeft}s`;
+        scoreEl.textContent = `Aciertos: ${gameState.scores[gameState.currentPlayerIndex]}`;
+      }
+
+      function startNewECG() {
+        hrInput.value = '';
+        feedbackEl.textContent = '';
+        feedbackEl.className = '';
+        hrInput.focus();
+        actualHeartRate = Math.floor(Math.random() * (100 - 60 + 1)) + 60; // FC 60-100
+        drawGrid();
+        generateECG(actualHeartRate);
+      }
+
+      verifyBtn.addEventListener('click', verifyAnswer);
+      hrInput.addEventListener('keyup', (event) => {
+        if (event.key === 'Enter') {
+          verifyAnswer();
+        }
+      });
+
+      function verifyAnswer() {
+        const userAnswer = parseInt(hrInput.value, 10);
+        if (isNaN(userAnswer)) return;
+
+        const margin = 2; // Margen de error más estricto para competencia
+        if (Math.abs(userAnswer - actualHeartRate) <= margin) {
+          feedbackEl.textContent = '✅ ¡Correcto!';
+          feedbackEl.className = 'success';
+          gameState.scores[gameState.currentPlayerIndex]++;
+          updateGameStats();
+          // Esperar un momento y generar el siguiente
+          setTimeout(startNewECG, 700);
+        } else {
+          feedbackEl.textContent = '❌ Incorrecto. ¡Sigue intentando!';
+          feedbackEl.className = 'failure';
+          hrInput.select(); // Seleccionar el texto para corregir fácil
+        }
+      }
+
+      // --- LÓGICA DE LA PANTALLA DE RESULTADOS ---
+      function showResults() {
+        showScreen('results');
+        resultsListEl.innerHTML = '';
+
+        const sortedResults = gameState.players.map((name, index) => ({
+          name: name,
+          score: gameState.scores[index]
+        })).sort((a, b) => b.score - a.score);
+
+        const maxScore = sortedResults[0].score;
+
+        sortedResults.forEach(result => {
+          const li = document.createElement('li');
+          li.textContent = `${result.name}: ${result.score} aciertos`;
+          if (result.score === maxScore && maxScore > 0) {
+            li.classList.add('winner');
+            li.textContent += ' 🏆';
+          }
+          resultsListEl.appendChild(li);
+        });
+      }
+
+      playAgainBtn.addEventListener('click', () => {
+        showScreen('setup');
+      });
+
+      // --- FUNCIONES DE DIBUJO (sin cambios) ---
+      function drawGrid() {
+        ctx.clearRect(0, 0, paperConfig.width, paperConfig.height);
+        ctx.strokeStyle = '#f9d7d4'; ctx.lineWidth = 0.5;
+        for (let x = 0; x < paperConfig.width; x += paperConfig.pxPerMm) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, paperConfig.height); ctx.stroke(); }
+        for (let y = 0; y < paperConfig.height; y += paperConfig.pxPerMm) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(paperConfig.width, y); ctx.stroke(); }
+        ctx.strokeStyle = '#f4a9a2'; ctx.lineWidth = 1;
+        for (let x = 0; x < paperConfig.width; x += (paperConfig.pxPerMm * 5)) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, paperConfig.height); ctx.stroke(); }
+        for (let y = 0; y < paperConfig.height; y += (paperConfig.pxPerMm * 5)) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(paperConfig.width, y); ctx.stroke(); }
+      }
+
+      function generateECG(heartRate) {
+        const rrIntervalSeconds = 60.0 / heartRate;
+        const rrIntervalPx = rrIntervalSeconds * paperConfig.pixelsPerSecond;
+        const centerY = paperConfig.height / 2;
+        const pWave = { dur: 0.08 * paperConfig.pixelsPerSecond, amp: 0.15 / paperConfig.mVPerMm * paperConfig.pxPerMm };
+        const prSegment = { dur: 0.08 * paperConfig.pixelsPerSecond };
+        const qrsComplex = { dur: 0.10 * paperConfig.pixelsPerSecond, qAmp: 0.1 / paperConfig.mVPerMm * paperConfig.pxPerMm, rAmp: 1.0 / paperConfig.mVPerMm * paperConfig.pxPerMm, sAmp: 0.2 / paperConfig.mVPerMm * paperConfig.pxPerMm };
+        const stSegment = { dur: 0.12 * paperConfig.pixelsPerSecond };
+        const tWave = { dur: 0.16 * paperConfig.pixelsPerSecond, amp: 0.3 / paperConfig.mVPerMm * paperConfig.pxPerMm };
+        ctx.beginPath(); ctx.strokeStyle = 'black'; ctx.lineWidth = 1.5;
+        let currentTimePx = 50;
+        while (currentTimePx < paperConfig.width) {
+          const variability = 1 + (Math.random() - 0.5) * 0.05; // +/- 2.5% variability
+          const currentRR = rrIntervalPx * variability;
+          let x = currentTimePx;
+          ctx.moveTo(x, centerY);
+          x += currentRR - (pWave.dur + prSegment.dur + qrsComplex.dur + stSegment.dur + tWave.dur);
+          ctx.lineTo(x, centerY); x += pWave.dur / 2;
+          ctx.quadraticCurveTo(x, centerY - pWave.amp, x + pWave.dur / 2, centerY); x += pWave.dur / 2;
+          x += prSegment.dur; ctx.lineTo(x, centerY);
+          ctx.lineTo(x + qrsComplex.dur * 0.1, centerY + qrsComplex.qAmp); x += qrsComplex.dur * 0.1;
+          ctx.lineTo(x + qrsComplex.dur * 0.4, centerY - qrsComplex.rAmp); x += qrsComplex.dur * 0.4;
+          ctx.lineTo(x + qrsComplex.dur * 0.5, centerY + qrsComplex.sAmp); x += qrsComplex.dur * 0.5;
+          ctx.lineTo(x, centerY); x += stSegment.dur; ctx.lineTo(x, centerY); x += tWave.dur / 2;
+          ctx.quadraticCurveTo(x, centerY - tWave.amp, x + tWave.dur / 2, centerY); x += tWave.dur / 2;
+          currentTimePx += currentRR;
+        }
+        ctx.stroke();
+      }
+    });
+  </script>
+</body>
+
+</html>

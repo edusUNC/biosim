@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador Definitivo del Nódulo Sinusal (SA)</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f0f2f5;
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    #simulador-container {
+      background-color: #ffffff;
+      padding: 2.5rem;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 1000px;
+      text-align: center;
+    }
+
+    h1 {
+      color: #546e7a;
+      margin-bottom: 0.5rem;
+    }
+
+    p.descripcion {
+      color: #555;
+      margin-bottom: 2rem;
+    }
+
+    #panel-principal {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 2rem;
+      align-items: flex-start;
+    }
+
+    #grafico-container {
+      position: relative;
+      background-color: #fafafa;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+    }
+
+    #grafico-svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    #trace-path {
+      stroke-width: 4;
+      stroke: #607d8b;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: d 0.3s ease-in-out;
+    }
+
+    #moving-dot {
+      fill: #f57c00;
+      stroke: white;
+      stroke-width: 2;
+    }
+
+    .grid-line {
+      stroke: #e0e0e0;
+      stroke-width: 1;
+    }
+
+    .axis-label {
+      font-size: 14px;
+      fill: #757575;
+    }
+
+    .phase-label {
+      font-size: 24px;
+      font-weight: bold;
+      fill: #333;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+    }
+
+    .phase-label.active {
+      opacity: 1;
+      transform: scale(1.1);
+    }
+
+    #panel-info {
+      text-align: left;
+    }
+
+    #controles {
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      background: #eceff1;
+      border-radius: 8px;
+    }
+
+    button {
+      background-color: #546e7a;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      width: 100%;
+    }
+
+    button:hover {
+      background-color: #37474f;
+    }
+
+    #explicacion-box {
+      background-color: #eceff1;
+      border-left: 5px solid #546e7a;
+      padding: 1.5rem;
+      border-radius: 8px;
+      min-height: 150px;
+      transition: all 0.3s;
+    }
+
+    #fase-titulo {
+      margin: 0 0 0.5rem 0;
+      color: #37474f;
+      font-size: 1.5rem;
+    }
+
+    #fase-ion {
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 1rem;
+    }
+
+    #fase-texto {
+      line-height: 1.6;
+    }
+
+    .slider-container {
+      margin-top: 1rem;
+    }
+
+    .slider-label {
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      text-align: left;
+    }
+
+    .slider-value {
+      float: right;
+      color: #546e7a;
+    }
+
+    @media (max-width: 800px) {
+      #panel-principal {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="simulador-container">
+    <h1>Simulador del Nódulo Sinusal (SA)</h1>
+    <p class="descripcion">Explora el automatismo del marcapasos cardíaco y cómo los iones extracelulares alteran su
+      ritmo y forma.</p>
+
+    <div id="panel-principal">
+      <div id="grafico-container">
+        <svg id="grafico-svg" viewBox="0 0 600 400">
+          <line class="grid-line" x1="50" y1="100" x2="550" y2="100"></line> <text class="axis-label" x="25"
+            y="105">0</text>
+          <line class="grid-line" x1="50" y1="250" x2="550" y2="250"></line> <text class="axis-label" x="0" y="255">-40
+            (Umbral)</text>
+          <line class="grid-line" x1="50" y1="350" x2="550" y2="350"></line> <text class="axis-label" x="0" y="355">-60
+            mV</text>
+          <path id="trace-path" d="..."></path>
+          <circle id="moving-dot" cx="50" cy="350" r="8"></circle>
+          <text id="label-4" class="phase-label" x="150" y="300">4</text>
+          <text id="label-0" class="phase-label" x="300" y="150">0</text>
+          <text id="label-3" class="phase-label" x="420" y="220">3</text>
+        </svg>
+      </div>
+
+      <div id="panel-info">
+        <div id="controles">
+          <button id="start-btn">Iniciar</button>
+          <div class="slider-container">
+            <div class="slider-label">Potasio [K⁺]out<span class="slider-value" id="k-value">4.0 mEq/L</span></div>
+            <input type="range" id="k-slider" min="2.5" max="7.5" value="4.0" step="0.1" style="width: 100%;">
+          </div>
+          <div class="slider-container">
+            <div class="slider-label">Sodio [Na⁺]out<span class="slider-value" id="na-value">140 mEq/L</span></div>
+            <input type="range" id="na-slider" min="125" max="155" value="140" step="1" style="width: 100%;">
+          </div>
+        </div>
+
+        <div id="explicacion-box">
+          <h2 id="fase-titulo">Listo para empezar</h2>
+          <p id="fase-ion"></p>
+          <p id="fase-texto">Usa los controles para explorar el potencial de acción del marcapasos cardíaco.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const path = document.getElementById('trace-path');
+    const dot = document.getElementById('moving-dot');
+    const startBtn = document.getElementById('start-btn');
+    const kSlider = document.getElementById('k-slider');
+    const naSlider = document.getElementById('na-slider');
+    const kValueText = document.getElementById('k-value');
+    const naValueText = document.getElementById('na-value');
+    const faseTitulo = document.getElementById('fase-titulo');
+    const faseIon = document.getElementById('fase-ion');
+    const faseTexto = document.getElementById('fase-texto');
+    const phaseLabels = { 4: document.getElementById('label-4'), 0: document.getElementById('label-0'), 3: document.getElementById('label-3') };
+
+    let pathLength = 0;
+    let animationFrameId;
+    let isPlaying = false;
+    let progress = 0;
+    let lastTime = 0;
+    let currentPhaseKey = '';
+
+    const phaseData = {
+      4: { start: 0, end: 0.45, title: "Fase 4: Potencial Marcapasos", ion: "Na⁺ (Corriente If) y Ca²⁺", text: "El potencial se despolariza lentamente por sí solo, gracias a la 'Corriente Funny' (If) de Sodio (Na⁺) y a canales de Calcio (Ca²⁺) tipo T.", color: "#455a64" },
+      0: { start: 0.45, end: 0.65, title: "Fase 0: Despolarización", ion: "Ca²⁺", text: "Al alcanzar el umbral, se abren canales de Calcio (Ca²⁺) tipo L, generando el potencial de acción. Un [K⁺] alto reduce el pico al inactivar algunos de estos canales.", color: "#00796b" },
+      3: { start: 0.65, end: 1, title: "Fase 3: Repolarización", ion: "K⁺", text: "La salida de Potasio (K⁺) repolariza la célula. Un [K⁺] extracelular alto enlentece esta fase, ensanchando la onda.", color: "#5d4037" },
+    };
+
+    function updatePath() {
+      const kLevel = parseFloat(kSlider.value);
+      const naLevel = parseFloat(naSlider.value);
+      kValueText.textContent = `${kLevel.toFixed(1)} mEq/L`;
+      naValueText.textContent = `${naLevel} mEq/L`;
+
+      const kNormal = 4.0;
+      const yOffset = (kLevel - kNormal) * 20;
+      const xOffset = (kLevel - kNormal) * 30;
+      const startY = 350 - yOffset;
+      const peakY = 80 + yOffset;
+
+      const naNormal = 140;
+      const phase4SlopeFactor = (naLevel - naNormal) * 2;
+      const phase4ControlY = 300 - phase4SlopeFactor;
+
+      const thresholdX = 250;
+      const peakX = 350 + xOffset;
+      const endX = 450 + xOffset * 2;
+
+      const pathString = `M50,${startY} C150,${startY} ${thresholdX - 50},${phase4ControlY} ${thresholdX},250 C${thresholdX + 20},150 ${peakX - 50},${peakY} ${peakX},${peakY} C${peakX + 50},${peakY} ${endX - 20},200 ${endX},${startY} L${endX + 100},${startY}`;
+      path.setAttribute('d', pathString);
+      pathLength = path.getTotalLength();
+      updateVisuals(progress);
+    }
+
+    function updateVisuals(newProgress) {
+      progress = newProgress;
+      const point = path.getPointAtLength(progress * pathLength);
+      dot.setAttribute('cx', point.x);
+      dot.setAttribute('cy', point.y);
+      path.style.strokeDashoffset = pathLength * (1 - progress);
+      updateInfo(progress);
+    }
+
+    function updateInfo(currentProgress) {
+      let newPhaseKey;
+      if (currentProgress >= phaseData['3'].start) {
+        newPhaseKey = '3';
+      } else if (currentProgress >= phaseData['0'].start) {
+        newPhaseKey = '0';
+      } else {
+        newPhaseKey = '4';
+      }
+
+      if (newPhaseKey !== currentPhaseKey) {
+        currentPhaseKey = newPhaseKey;
+        const phase = phaseData[currentPhaseKey];
+        if (phase) {
+          faseTitulo.textContent = phase.title;
+          faseIon.textContent = `Iones principales: ${phase.ion}`;
+          faseTexto.textContent = phase.text;
+          document.getElementById('explicacion-box').style.borderColor = phase.color;
+
+          for (const key in phaseLabels) {
+            phaseLabels[key].classList.remove('active');
+          }
+          if (phaseLabels[currentPhaseKey]) {
+            phaseLabels[currentPhaseKey].classList.add('active');
+          }
+        }
+      }
+    }
+
+    function animate(time) {
+      if (!isPlaying) return;
+      if (!lastTime) lastTime = time;
+      const deltaTime = time - lastTime;
+      lastTime = time;
+
+      const duration = 2000;
+      let newProgress = progress + (deltaTime / duration);
+
+      if (newProgress >= 1) {
+        newProgress = 1;
+        isPlaying = false;
+        startBtn.textContent = "Reiniciar";
+      }
+
+      updateVisuals(newProgress);
+
+      if (isPlaying) {
+        animationFrameId = requestAnimationFrame(animate);
+      }
+    }
+
+    function handleStartBtn() {
+      if (progress >= 1) { // Caso Reiniciar
+        progress = 0;
+        isPlaying = false;
+        updateVisuals(0);
+        startBtn.textContent = "Iniciar";
+        return;
+      }
+
+      isPlaying = !isPlaying;
+      if (isPlaying) {
+        lastTime = performance.now();
+        startBtn.textContent = "Pausar";
+        animationFrameId = requestAnimationFrame(animate);
+      } else {
+        startBtn.textContent = "Continuar";
+        cancelAnimationFrame(animationFrameId);
+      }
+    }
+
+    startBtn.addEventListener('click', handleStartBtn);
+    kSlider.addEventListener('input', updatePath);
+    naSlider.addEventListener('input', updatePath);
+
+    // Inicialización
+    updatePath();
+    updateVisuals(0);
+  </script>
+</body>
+
+</html>

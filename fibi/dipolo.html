@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador Básico de Dipolo</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f0f2f5;
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    #simulador-container {
+      background-color: #ffffff;
+      padding: 2.5rem;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 800px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+      margin-bottom: 0.5rem;
+    }
+
+    p.descripcion {
+      text-align: center;
+      color: #555;
+      margin-bottom: 2rem;
+    }
+
+    #panel-principal {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      align-items: center;
+    }
+
+    #visualizacion-svg {
+      width: 100%;
+      height: auto;
+      border: 2px solid #ecf0f1;
+      border-radius: 50%;
+      background-color: #fafafa;
+    }
+
+    #electrode {
+      cursor: move;
+    }
+
+    #voltimetro-container {
+      text-align: center;
+    }
+
+    #voltimetro-svg {
+      width: 80%;
+      max-width: 250px;
+      height: auto;
+    }
+
+    #needle {
+      transition: transform 0.1s linear;
+    }
+
+    #voltage-display {
+      font-size: 2rem;
+      font-weight: bold;
+      font-family: monospace;
+      margin-top: 1rem;
+      color: #34495e;
+    }
+
+    #controles {
+      grid-column: 1 / -1;
+      margin-top: 1.5rem;
+      text-align: center;
+    }
+
+    button {
+      background-color: #2980b9;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #2471a3;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="simulador-container">
+    <h1>Simulador Básico de Dipolo</h1>
+    <p class="descripcion">Arrastra el electrodo azul para ver cómo su posición relativa al vector (flecha roja) cambia
+      el voltaje registrado.</p>
+
+    <div id="panel-principal">
+      <div id="visualizacion-container">
+        <svg id="visualizacion-svg" viewBox="-150 -150 300 300">
+          <circle cx="0" cy="0" r="120" fill="none" stroke="#bdc3c7" stroke-dasharray="5,5" />
+          <g id="vector" transform="rotate(0)">
+            <line x1="0" y1="0" x2="100" y2="0" stroke="#c0392b" stroke-width="5" marker-end="url(#arrowhead)" />
+          </g>
+          <g id="electrode" transform="translate(120, 0)">
+            <circle cx="0" cy="0" r="15" fill="#3498db" stroke="white" stroke-width="2" />
+            <text x="0" y="5" fill="white" font-weight="bold" text-anchor="middle" font-size="16px">E</text>
+          </g>
+          <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="8" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#c0392b" />
+            </marker>
+          </defs>
+        </svg>
+      </div>
+
+      <div id="voltimetro-container">
+        <svg id="voltimetro-svg" viewBox="-100 -100 200 120">
+          <path d="M -80 0 A 80 80 0 0 1 80 0" stroke="#34495e" stroke-width="4" fill="none" />
+          <text x="-85" y="15">-100</text>
+          <text x="-10" y="-85">0</text>
+          <text x="70" y="15">+100</text>
+          <g transform="rotate(0)">
+            <line id="needle" x1="0" y1="0" x2="0" y2="-70" stroke="#e74c3c" stroke-width="3" />
+            <circle cx="0" cy="0" r="5" fill="#34495e" />
+          </g>
+        </svg>
+        <div id="voltage-display">0</div>
+      </div>
+    </div>
+    <div id="controles">
+      <button id="animar-btn">Animar Vector</button>
+    </div>
+  </div>
+
+  <script>
+    const svg = document.getElementById('visualizacion-svg');
+    const vector = document.getElementById('vector');
+    const electrode = document.getElementById('electrode');
+    const needle = document.getElementById('needle').parentElement;
+    const voltageDisplay = document.getElementById('voltage-display');
+    const animarBtn = document.getElementById('animar-btn');
+
+    let isDragging = false;
+    let vectorAngle = 0;
+    let isAnimating = false;
+    let animationFrameId;
+
+    function getMousePosition(evt) {
+      const CTM = svg.getScreenCTM();
+      return {
+        x: (evt.clientX - CTM.e) / CTM.a,
+        y: (evt.clientY - CTM.f) / CTM.d
+      };
+    }
+
+    electrode.addEventListener('mousedown', (evt) => {
+      isDragging = true;
+      electrode.style.cursor = 'grabbing';
+    });
+
+    svg.addEventListener('mousemove', (evt) => {
+      if (isDragging) {
+        const coord = getMousePosition(evt);
+        const angle = Math.atan2(coord.y, coord.x);
+        const x = 120 * Math.cos(angle);
+        const y = 120 * Math.sin(angle);
+        electrode.setAttribute('transform', `translate(${x}, ${y})`);
+        calculateAndDisplayVoltage();
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+      electrode.style.cursor = 'move';
+    });
+
+    function calculateAndDisplayVoltage() {
+      const transform = electrode.getAttribute('transform');
+      const parts = /translate\(([^,]+),([^)]+)\)/.exec(transform);
+      const electrodeX = parseFloat(parts[1]);
+      const electrodeY = parseFloat(parts[2]);
+
+      const electrodeAngle = Math.atan2(electrodeY, electrodeX) * (180 / Math.PI);
+      const angleDifference = vectorAngle - electrodeAngle;
+
+      const voltage = 100 * Math.cos(angleDifference * Math.PI / 180);
+
+      const needleAngle = (voltage / 100) * 90;
+
+      needle.setAttribute('transform', `rotate(${needleAngle})`);
+      voltageDisplay.textContent = Math.round(voltage);
+    }
+
+    function animateVector() {
+      if (!isAnimating) return;
+      vectorAngle = (vectorAngle + 1) % 360;
+      vector.setAttribute('transform', `rotate(${vectorAngle})`);
+      calculateAndDisplayVoltage();
+      animationFrameId = requestAnimationFrame(animateVector);
+    }
+
+    animarBtn.addEventListener('click', () => {
+      isAnimating = !isAnimating;
+      if (isAnimating) {
+        animarBtn.textContent = "Pausar Animación";
+        lastTime = performance.now();
+        animationFrameId = requestAnimationFrame(animateVector);
+      } else {
+        animarBtn.textContent = "Animar Vector";
+        cancelAnimationFrame(animationFrameId);
+      }
+    });
+
+    calculateAndDisplayVoltage();
+  </script>
+</body>
+
+</html>

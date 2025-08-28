@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador Interactivo de Eje Cardíaco</title>
+  <style>
+    /* --- ESTILOS GENERALES (la mayoría sin cambios) --- */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f0f2f5;
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      padding: 20px;
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1200px;
+      background-color: #fff;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+
+    h1 {
+      color: #0d47a1;
+    }
+
+    .main-content {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 40px;
+      margin-top: 10px;
+    }
+
+    .simulator {
+      position: relative;
+      width: 500px;
+      height: 500px;
+    }
+
+    #axis-canvas {
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+    }
+
+    .leads-display {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+      width: 300px;
+    }
+
+    .lead-box {
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 5px;
+      background-color: #fafafa;
+    }
+
+    .lead-box .lead-name {
+      font-weight: bold;
+      font-size: 1.2em;
+      color: #555;
+    }
+
+    .lead-box canvas {
+      width: 100%;
+      height: 60px;
+      background-color: white;
+      border-radius: 4px;
+    }
+
+    .info-panel {
+      margin-top: 15px;
+      padding: 10px;
+      background-color: #e3f2fd;
+      border-radius: 8px;
+      font-size: 1.2em;
+      font-weight: bold;
+    }
+
+    #angle-display {
+      color: #0d47a1;
+      font-size: 1.3em;
+    }
+
+    #axis-interpretation {
+      color: #d32f2f;
+      font-size: 1.3em;
+    }
+
+    /* --- ESTILOS MEJORADOS PARA MODO DESAFÍO --- */
+    .mode-selector {
+      margin: 15px 0;
+    }
+
+    .mode-btn {
+      padding: 10px 20px;
+      font-size: 1em;
+      border: 2px solid transparent;
+      background-color: #e0e0e0;
+      color: #555;
+      cursor: pointer;
+      border-radius: 20px;
+      margin: 0 5px;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
+
+    .mode-btn.active {
+      background-color: #1976d2;
+      color: white;
+      border-color: #1976d2;
+    }
+
+    #challenge-section {
+      display: none;
+      margin-top: 15px;
+    }
+
+    .challenge-box {
+      padding: 20px;
+      background-color: #fffde7;
+      border: 2px dashed #fbc02d;
+      border-radius: 8px;
+    }
+
+    #challenge-timer {
+      font-size: 1.8em;
+      font-weight: bold;
+      color: #555;
+      margin-bottom: 15px;
+    }
+
+    #challenge-description {
+      font-size: 1.3em;
+      color: #333;
+      margin: 0 0 15px 0;
+    }
+
+    #challenge-feedback {
+      font-size: 1.2em;
+      font-weight: bold;
+      height: 25px;
+    }
+
+    #challenge-feedback.success {
+      color: #2e7d32;
+    }
+
+    #challenge-feedback.failure {
+      color: #c62828;
+    }
+
+    .btn-check {
+      padding: 10px 25px;
+      font-size: 1.1em;
+      border: none;
+      border-radius: 8px;
+      background-color: #fbc02d;
+      color: #333;
+      font-weight: bold;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>Simulador Interactivo de Eje Cardíaco</h1>
+
+    <div class="mode-selector">
+      <button id="lab-mode-btn" class="mode-btn active">🔬 Modo Laboratorio</button>
+      <button id="challenge-mode-btn" class="mode-btn">🏆 Modo Desafío</button>
+    </div>
+
+    <div id="challenge-section">
+      <div class="challenge-box">
+        <div id="challenge-timer">Tiempo: 00:00</div>
+        <p id="challenge-description">--</p>
+        <button id="check-answer-btn" class="btn-check">Verificar Respuesta</button>
+        <div id="challenge-feedback"></div>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="simulator"><canvas id="axis-canvas" width="500" height="500"></canvas></div>
+      <div class="leads-display"></div>
+    </div>
+
+    <div class="info-panel">
+      <span id="angle-display">--°</span> | <span id="axis-interpretation">--</span>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const labModeBtn = document.getElementById('lab-mode-btn'),
+        challengeModeBtn = document.getElementById('challenge-mode-btn'),
+        challengeSection = document.getElementById('challenge-section'),
+        challengeTimerEl = document.getElementById('challenge-timer'),
+        challengeDescription = document.getElementById('challenge-description'),
+        checkAnswerBtn = document.getElementById('check-answer-btn'),
+        challengeFeedback = document.getElementById('challenge-feedback'),
+        canvas = document.getElementById('axis-canvas'),
+        ctx = canvas.getContext('2d'),
+        angleDisplay = document.getElementById('angle-display'),
+        axisInterpretation = document.getElementById('axis-interpretation'),
+        leadsDisplayContainer = document.querySelector('.leads-display');
+
+      const centerX = canvas.width / 2, centerY = canvas.height / 2,
+        radius = canvas.width / 2 - 40, vectorLength = radius * 0.8;
+
+      let currentAngle = 60, isDragging = false, currentMode = 'lab';
+
+      const leads = { 'DI': { angle: 0 }, 'DII': { angle: 60 }, 'DIII': { angle: 120 }, 'aVR': { angle: -150 }, 'aVL': { angle: -30 }, 'aVF': { angle: 90 } };
+
+      // --- MODO DESAFÍO: LISTA AMPLIADA Y LÓGICA DE CRONÓMETRO ---
+      const challenges = [
+        // Nivel Fácil: Conceptos básicos
+        { desc: "Comencemos: coloca el eje en un 'Eje Normal'.", type: 'range', range: [-30, 90] },
+        { desc: "Haz que DI sea lo más POSITIVA posible.", type: 'angle', target: 0, tol: 5 },
+        { desc: "Ahora, haz que aVF sea lo más POSITIVA posible.", type: 'angle', target: 90, tol: 5 },
+        { desc: "Busca el punto donde DII es máxima.", type: 'angle', target: 60, tol: 5 },
+        { desc: "Haz que aVR sea lo más NEGATIVA posible.", type: 'angle', target: 30, tol: 5 },
+        // Nivel Intermedio: Isoeléctricas y Desviaciones
+        { desc: "Encuentra el punto donde DI es ISOELÉCTRICA.", type: 'angle', target: 90, tol: 3 },
+        { desc: "Ahora, haz que DIII sea ISOELÉCTRICA.", type: 'angle', target: 30, tol: 3 },
+        { desc: "Mueve el eje a una 'Desviación a la Izquierda'.", type: 'range', range: [-31, -90] },
+        { desc: "Encuentra el ángulo para una 'Desviación a la Derecha'.", type: 'range', range: [91, 180] },
+        { desc: "Haz que aVL sea ISOELÉCTRICA.", type: 'angle', target: 60, tol: 3 },
+        // Nivel Difícil: Combinación de derivaciones
+        { desc: "DI es POSITIVA y aVF es NEGATIVA.", type: 'range', range: [-1, -89] },
+        { desc: "DI es NEGATIVA y aVF es POSITIVA.", type: 'range', range: [91, 179] },
+        { desc: "DII, DIII y aVF son todas POSITIVAS.", type: 'range', range: [0, 60] },
+        { desc: "DII, DIII y aVF son todas NEGATIVAS.", type: 'range', range: [-120, -180] },
+        { desc: "DI y DII son POSITIVAS, DIII es ISOELÉCTRICA.", type: 'angle', target: 30, tol: 3 },
+        // Nivel Experto: Escenarios clínicos
+        { desc: "Muestra un eje típico de un Hemibloqueo Anterior Izquierdo (aprox. -60°).", type: 'angle', target: -60, tol: 10 },
+        { desc: "Muestra un eje típico de un Hemibloqueo Posterior Izquierdo (aprox. +120°).", type: 'angle', target: 120, tol: 10 },
+        { desc: "Haz que aVR sea ISOELÉCTRICA.", type: 'angle', target: -60, tol: 3 },
+        { desc: "DI es NEGATIVA y aVL es POSITIVA.", type: 'range', range: [-91, -179] },
+        { desc: "¡Final! El eje más odiado: 'Desviación Extrema' (Tierra de Nadie).", type: 'range', range: [-91, -179] },
+      ];
+      let currentChallengeIndex = 0;
+      let timer = { interval: null, startTime: 0 };
+
+      function formatTime(seconds) {
+        const min = Math.floor(seconds / 60).toString().padStart(2, '0');
+        const sec = (seconds % 60).toString().padStart(2, '0');
+        return `${min}:${sec}`;
+      }
+      function startTimer() {
+        timer.startTime = Date.now();
+        timer.interval = setInterval(() => {
+          const elapsedTime = Math.floor((Date.now() - timer.startTime) / 1000);
+          challengeTimerEl.textContent = `Tiempo: ${formatTime(elapsedTime)}`;
+        }, 1000);
+      }
+      function stopTimer() {
+        clearInterval(timer.interval);
+      }
+
+      function setupChallengeMode() {
+        currentMode = 'challenge';
+        labModeBtn.classList.remove('active');
+        challengeModeBtn.classList.add('active');
+        challengeSection.style.display = 'block';
+        checkAnswerBtn.style.display = 'inline-block';
+        currentChallengeIndex = 0;
+        challengeTimerEl.textContent = 'Tiempo: 00:00';
+        loadChallenge();
+        startTimer();
+      }
+      function setupLabMode() {
+        currentMode = 'lab';
+        challengeModeBtn.classList.remove('active');
+        labModeBtn.classList.add('active');
+        challengeSection.style.display = 'none';
+        stopTimer();
+      }
+
+      function loadChallenge() {
+        if (currentChallengeIndex >= challenges.length) {
+          stopTimer();
+          const totalTime = Math.floor((Date.now() - timer.startTime) / 1000);
+          challengeDescription.innerHTML = `<strong>¡Felicidades!</strong><br>Completaste todos los desafíos en ${formatTime(totalTime)}.`;
+          checkAnswerBtn.style.display = 'none';
+          challengeFeedback.textContent = '';
+          return;
+        }
+        const challenge = challenges[currentChallengeIndex];
+        challengeDescription.textContent = `Desafío ${currentChallengeIndex + 1}/${challenges.length}: ${challenge.desc}`;
+        challengeFeedback.textContent = '';
+        challengeFeedback.className = '';
+      }
+
+      function checkAnswer() {
+        const challenge = challenges[currentChallengeIndex];
+        let isCorrect = false;
+
+        if (challenge.type === 'angle') {
+          isCorrect = Math.abs(currentAngle - challenge.target) <= challenge.tol;
+        } else if (challenge.type === 'range') {
+          isCorrect = currentAngle >= challenge.range[0] && currentAngle <= challenge.range[1];
+        }
+
+        if (isCorrect) {
+          challengeFeedback.textContent = '✅ ¡Correcto! Siguiente desafío...';
+          challengeFeedback.className = 'success';
+          currentChallengeIndex++;
+          setTimeout(loadChallenge, 1500);
+        } else {
+          challengeFeedback.textContent = '❌ Incorrecto. ¡Sigue intentándolo!';
+          challengeFeedback.className = 'failure';
+        }
+      }
+
+      labModeBtn.addEventListener('click', setupLabMode);
+      challengeModeBtn.addEventListener('click', setupChallengeMode);
+      checkAnswerBtn.addEventListener('click', checkAnswer);
+
+      function init() { /* ... (sin cambios) ... */
+        for (const name in leads) { const lead = leads[name]; const box = document.createElement('div'); box.className = 'lead-box'; box.innerHTML = `<div class="lead-name">${name}</div>`; const leadCanvas = document.createElement('canvas'); leadCanvas.width = 150; leadCanvas.height = 60; box.appendChild(leadCanvas); leadsDisplayContainer.appendChild(box); lead.canvas = leadCanvas; lead.ctx = leadCanvas.getContext('2d') }
+        canvas.addEventListener('mousedown', startDrag); canvas.addEventListener('mousemove', drag); canvas.addEventListener('mouseup', endDrag); canvas.addEventListener('mouseout', endDrag); drawAll();
+      }
+      function drawAll() { /* ... (sin cambios) ... */
+        ctx.clearRect(0, 0, canvas.width, canvas.height); drawHexaxialSystem(); drawVector(); updateLeadDisplays(); updateInfoPanel();
+      }
+      function drawHexaxialSystem() { /* ... (sin cambios) ... */
+        ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI); ctx.stroke();
+        for (const name in leads) { const angleRad = leads[name].angle * Math.PI / 180; const endX = centerX + radius * Math.cos(angleRad); const endY = centerY + radius * Math.sin(angleRad); ctx.beginPath(); ctx.moveTo(centerX, centerY); ctx.lineTo(endX, endY); ctx.stroke(); ctx.font = 'bold 14px sans-serif'; ctx.fillStyle = '#333'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const labelX = centerX + (radius + 20) * Math.cos(angleRad); const labelY = centerY + (radius + 20) * Math.sin(angleRad); ctx.fillText(name, labelX, labelY) }
+      }
+      function drawVector() { /* ... (sin cambios) ... */
+        const angleRad = currentAngle * Math.PI / 180; const endX = centerX + vectorLength * Math.cos(angleRad); const endY = centerY + vectorLength * Math.sin(angleRad); ctx.beginPath(); ctx.moveTo(centerX, centerY); ctx.lineTo(endX, endY); ctx.strokeStyle = '#d32f2f'; ctx.lineWidth = 4; ctx.stroke();
+        const arrowSize = 15; ctx.save(); ctx.translate(endX, endY); ctx.rotate(angleRad); ctx.fillStyle = '#d32f2f'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-arrowSize, -arrowSize / 2); ctx.lineTo(-arrowSize, arrowSize / 2); ctx.closePath(); ctx.fill(); ctx.restore();
+      }
+      function updateLeadDisplays() { /* ... (sin cambios) ... */
+        for (const name in leads) { const lead = leads[name]; const vectorAngleRad = currentAngle * Math.PI / 180; const leadAngleRad = lead.angle * Math.PI / 180; const projection = Math.cos(vectorAngleRad - leadAngleRad); drawQRS(lead.ctx, projection) }
+      }
+      function drawQRS(leadCtx, projection) { /* ... (sin cambios) ... */
+        leadCtx.clearRect(0, 0, leadCtx.canvas.width, leadCtx.canvas.height); leadCtx.beginPath(); leadCtx.strokeStyle = 'black'; leadCtx.lineWidth = 2;
+        const w = leadCtx.canvas.width, h = leadCtx.canvas.height, midY = h / 2; const maxAmp = h * 0.45, amp = maxAmp * projection;
+        leadCtx.moveTo(0, midY); leadCtx.lineTo(w * 0.35, midY);
+        if (Math.abs(amp) < 2) { leadCtx.lineTo(w * 0.45, midY - 10); leadCtx.lineTo(w * 0.55, midY + 10) }
+        else if (amp > 0) { leadCtx.lineTo(w * 0.45, midY); leadCtx.lineTo(w * 0.5, midY - amp); leadCtx.lineTo(w * 0.55, midY) }
+        else { leadCtx.lineTo(w * 0.45, midY); leadCtx.lineTo(w * 0.5, midY - amp); leadCtx.lineTo(w * 0.55, midY) }
+        leadCtx.lineTo(w, midY); leadCtx.stroke();
+      }
+      function updateInfoPanel() { /* ... (sin cambios) ... */
+        angleDisplay.textContent = `${Math.round(currentAngle)}°`; let interpretation = '';
+        if (currentAngle >= -30 && currentAngle <= 90) { interpretation = 'Eje Normal' }
+        else if (currentAngle < -30 && currentAngle >= -90) { interpretation = 'Eje Desviado a la Izquierda' }
+        else if (currentAngle > 90 && currentAngle <= 180) { interpretation = 'Eje Desviado a la Derecha' }
+        else { interpretation = 'Desviación Extrema' }
+        axisInterpretation.textContent = interpretation;
+      }
+      function getMouseAngle(event) { const rect = canvas.getBoundingClientRect(); const mouseX = event.clientX - rect.left; const mouseY = event.clientY - rect.top; const angleRad = Math.atan2(mouseY - centerY, mouseX - centerX); return angleRad * 180 / Math.PI }
+      function startDrag(event) { isDragging = true; currentAngle = getMouseAngle(event); drawAll() }
+      function drag(event) { if (isDragging) { currentAngle = getMouseAngle(event); drawAll() } }
+      function endDrag() { isDragging = false }
+
+      init();
+    });
+  </script>
+</body>
+
+</html>

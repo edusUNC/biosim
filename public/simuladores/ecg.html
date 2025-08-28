@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Juego de ECG - Calculadora de Frecuencia Cardíaca</title>
+  <style>
+    /* --- ESTILOS GENERALES --- */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f0f2f5;
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1100px;
+      background-color: #fff;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+
+    h1 {
+      color: #d32f2f;
+      margin-bottom: 10px;
+    }
+
+    p {
+      margin-bottom: 20px;
+      font-size: 1.1em;
+    }
+
+    /* --- ESTILOS DEL PAPEL Y TRAZADO ECG --- */
+    .ecg-paper {
+      position: relative;
+      background-color: #fbe9e7;
+      /* Color rosado pálido del papel */
+      overflow-x: auto;
+      border: 1px solid #e0e0e0;
+    }
+
+    canvas#ecg-canvas {
+      display: block;
+    }
+
+    /* --- ESTILOS DE LA INTERFAZ DE USUARIO --- */
+    .controls {
+      margin-top: 25px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    .input-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .input-group label {
+      font-weight: bold;
+    }
+
+    .input-group input {
+      width: 80px;
+      padding: 10px;
+      border: 2px solid #ccc;
+      border-radius: 6px;
+      font-size: 1.2em;
+      text-align: center;
+    }
+
+    .input-group input:focus {
+      outline: none;
+      border-color: #1976d2;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 1em;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s, transform 0.1s;
+    }
+
+    .btn-primary {
+      background-color: #1976d2;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background-color: #1565c0;
+    }
+
+    .btn-secondary {
+      background-color: #6c757d;
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background-color: #5a6268;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    #feedback {
+      margin-top: 20px;
+      font-size: 1.5em;
+      font-weight: bold;
+      height: 30px;
+    }
+
+    #feedback.success {
+      color: #388e3c;
+    }
+
+    #feedback.failure {
+      color: #d32f2f;
+    }
+
+    /* --- ESTILOS DEL MODO CORRECCIÓN --- */
+    .correction-mode {
+      margin-top: 15px;
+      padding: 15px;
+      background-color: #e3f2fd;
+      border: 1px dashed #1976d2;
+      border-radius: 8px;
+      display: none;
+      /* Oculto por defecto */
+    }
+
+    .correction-mode p {
+      margin: 0 0 10px 0;
+      font-size: 1em;
+    }
+
+    #correction-result {
+      font-weight: bold;
+      color: #1976d2;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <h1>Juego de Cálculo de ECG</h1>
+    <p>Observa el trazado de 10 segundos (Derivación II). Calcula la frecuencia cardíaca y verifica tu respuesta.</p>
+
+    <div class="ecg-paper">
+      <canvas id="ecg-canvas" width="1000" height="200"></canvas>
+    </div>
+
+    <div class="controls">
+      <div class="input-group">
+        <label for="hr-input">FC (lpm):</label>
+        <input type="number" id="hr-input" min="30" max="200">
+      </div>
+      <button class="btn btn-primary" id="verify-btn">Verificar mi cálculo</button>
+      <button class="btn btn-secondary" id="new-ecg-btn">Nuevo ECG</button>
+    </div>
+
+    <div id="feedback"></div>
+
+    <div class="correction-mode" id="correction-container">
+      <p><strong>Modo Corrección:</strong> Haz clic en el pico de dos ondas R seguidas para medir el intervalo R-R y ver
+        el cálculo exacto.</p>
+      <div id="correction-result"></div>
+    </div>
+  </div>
+
+  <script>
+    // --- LÓGICA DEL JUEGO (JAVASCRIPT) ---
+    document.addEventListener('DOMContentLoaded', () => {
+
+      // --- CONFIGURACIÓN INICIAL ---
+      const canvas = document.getElementById('ecg-canvas');
+      const ctx = canvas.getContext('2d');
+      const hrInput = document.getElementById('hr-input');
+      const verifyBtn = document.getElementById('verify-btn');
+      const newEcgBtn = document.getElementById('new-ecg-btn');
+      const feedbackEl = document.getElementById('feedback');
+      const correctionContainer = document.getElementById('correction-container');
+      const correctionResultEl = document.getElementById('correction-result');
+
+      const paperConfig = {
+        width: 1000,    // Ancho del canvas en píxeles (equivalente a 25 cm o 10 segundos a 25 mm/s)
+        height: 200,   // Altura del canvas
+        mmPerSecond: 25,
+        pxPerMm: 4,      // 4 píxeles por milímetro para una buena resolución
+        mVPerMm: 0.1,    // 10 mm por 1 mV
+        get pixelsPerSecond() { return this.mmPerSecond * this.pxPerMm; },
+        get durationSeconds() { return this.width / this.pixelsPerSecond; }
+      };
+
+      let actualHeartRate = 0;
+      let rPeaks = []; // Almacena las posiciones en píxeles de los picos R
+      let clicks = []; // Para el modo corrección
+
+      // --- FUNCIONES DE DIBUJO ---
+
+      function drawGrid() {
+        ctx.clearRect(0, 0, paperConfig.width, paperConfig.height);
+        ctx.strokeStyle = '#f9d7d4'; // Color de las líneas finas
+        ctx.lineWidth = 0.5;
+
+        // Cuadrícula fina (1mm)
+        for (let x = 0; x < paperConfig.width; x += paperConfig.pxPerMm) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, paperConfig.height);
+          ctx.stroke();
+        }
+        for (let y = 0; y < paperConfig.height; y += paperConfig.pxPerMm) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(paperConfig.width, y);
+          ctx.stroke();
+        }
+
+        // Cuadrícula gruesa (5mm)
+        ctx.strokeStyle = '#f4a9a2';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < paperConfig.width; x += (paperConfig.pxPerMm * 5)) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, paperConfig.height);
+          ctx.stroke();
+        }
+        for (let y = 0; y < paperConfig.height; y += (paperConfig.pxPerMm * 5)) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(paperConfig.width, y);
+          ctx.stroke();
+        }
+
+        // Marcas de tiempo (cada 3 segundos)
+        ctx.fillStyle = '#333';
+        ctx.font = '12px Arial';
+        for (let s = 3; s < paperConfig.durationSeconds; s += 3) {
+          const xPos = s * paperConfig.pixelsPerSecond;
+          ctx.beginPath();
+          ctx.moveTo(xPos, 0);
+          ctx.lineTo(xPos, 15);
+          ctx.stroke();
+          ctx.fillText(`${s}s`, xPos - 10, 25);
+        }
+      }
+
+      function generateECG(heartRate) {
+        const rrIntervalSeconds = 60.0 / heartRate;
+        const rrIntervalPx = rrIntervalSeconds * paperConfig.pixelsPerSecond;
+        const centerY = paperConfig.height / 2;
+
+        // Amplitud y duración de las ondas (en % del intervalo R-R y mV)
+        const pWave = { dur: 0.08 * paperConfig.pixelsPerSecond, amp: 0.15 / paperConfig.mVPerMm * paperConfig.pxPerMm };
+        const prSegment = { dur: 0.08 * paperConfig.pixelsPerSecond };
+        const qrsComplex = { dur: 0.10 * paperConfig.pixelsPerSecond, qAmp: 0.1 / paperConfig.mVPerMm * paperConfig.pxPerMm, rAmp: 1.0 / paperConfig.mVPerMm * paperConfig.pxPerMm, sAmp: 0.2 / paperConfig.mVPerMm * paperConfig.pxPerMm };
+        const stSegment = { dur: 0.12 * paperConfig.pixelsPerSecond };
+        const tWave = { dur: 0.16 * paperConfig.pixelsPerSecond, amp: 0.3 / paperConfig.mVPerMm * paperConfig.pxPerMm };
+
+        ctx.beginPath();
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 1.5;
+        rPeaks = [];
+
+        let currentTimePx = 50; // Empezar con un pequeño margen
+
+        while (currentTimePx < paperConfig.width) {
+          // Añadir pequeña variabilidad al intervalo R-R
+          const variability = 1 + (Math.random() - 0.5) * 0.1; // +/- 5%
+          const currentRR = rrIntervalPx * variability;
+
+          // Dibujar el complejo P-QRS-T
+          let x = currentTimePx;
+
+          // Línea base
+          ctx.moveTo(x, centerY);
+          x += currentRR - (pWave.dur + prSegment.dur + qrsComplex.dur + stSegment.dur + tWave.dur);
+          ctx.lineTo(x, centerY);
+
+          // Onda P
+          x += pWave.dur / 2;
+          ctx.quadraticCurveTo(x, centerY - pWave.amp, x + pWave.dur / 2, centerY);
+          x += pWave.dur / 2;
+
+          // Segmento PR
+          x += prSegment.dur;
+          ctx.lineTo(x, centerY);
+
+          // Complejo QRS
+          ctx.lineTo(x + qrsComplex.dur * 0.1, centerY + qrsComplex.qAmp); // Onda Q
+          x += qrsComplex.dur * 0.1;
+          const rPeakX = x + qrsComplex.dur * 0.4;
+          rPeaks.push(rPeakX); // Guardar posición del pico R
+          ctx.lineTo(rPeakX, centerY - qrsComplex.rAmp); // Onda R
+          x += qrsComplex.dur * 0.4;
+          ctx.lineTo(x + qrsComplex.dur * 0.5, centerY + qrsComplex.sAmp); // Onda S
+          x += qrsComplex.dur * 0.5;
+          ctx.lineTo(x, centerY);
+
+          // Segmento ST
+          x += stSegment.dur;
+          ctx.lineTo(x, centerY);
+
+          // Onda T
+          x += tWave.dur / 2;
+          ctx.quadraticCurveTo(x, centerY - tWave.amp, x + tWave.dur / 2, centerY);
+          x += tWave.dur / 2;
+
+          currentTimePx += currentRR;
+        }
+        ctx.stroke();
+      }
+
+      // --- LÓGICA DEL JUEGO ---
+
+      function startNewGame() {
+        // 1. Resetear todo
+        hrInput.value = '';
+        feedbackEl.textContent = '';
+        feedbackEl.className = '';
+        correctionContainer.style.display = 'none';
+        correctionResultEl.textContent = '';
+        clicks = [];
+        hrInput.disabled = false;
+        verifyBtn.disabled = false;
+
+        // 2. Generar nueva FC y ECG
+        actualHeartRate = Math.floor(Math.random() * (100 - 60 + 1)) + 60; // FC entre 60 y 100
+        console.log("FC Secreta:", actualHeartRate); // Para depuración
+
+        // 3. Dibujar en el canvas
+        drawGrid();
+        generateECG(actualHeartRate);
+      }
+
+      function verifyAnswer() {
+        const userAnswer = parseInt(hrInput.value, 10);
+        if (isNaN(userAnswer)) {
+          feedbackEl.textContent = 'Por favor, ingresa un número.';
+          feedbackEl.className = 'failure';
+          return;
+        }
+
+        // Permitimos un margen de error (ej. +/- 3 lpm)
+        const margin = 3;
+        if (Math.abs(userAnswer - actualHeartRate) <= margin) {
+          feedbackEl.textContent = '✅ ¡Correcto!';
+          feedbackEl.className = 'success';
+          hrInput.disabled = true;
+          verifyBtn.disabled = true;
+        } else {
+          feedbackEl.textContent = '❌ Incorrecto. Inténtalo de nuevo o usa la corrección.';
+          feedbackEl.className = 'failure';
+        }
+
+        // Mostrar siempre el modo corrección después de un intento
+        correctionContainer.style.display = 'block';
+      }
+
+      function handleCorrectionClick(event) {
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+
+        clicks.push(x);
+
+        // Dibuja un marcador visual
+        ctx.fillStyle = 'blue';
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, 2 * Math.PI);
+        ctx.fill();
+
+        if (clicks.length === 2) {
+          const [click1, click2] = clicks;
+          const distancePx = Math.abs(click1 - click2);
+          const distanceSeconds = distancePx / paperConfig.pixelsPerSecond;
+          const calculatedHr = 60 / distanceSeconds;
+
+          correctionResultEl.innerHTML = `Distancia R-R: ${distanceSeconds.toFixed(2)} segundos.<br>FC Calculada Exacta: <strong>${calculatedHr.toFixed(0)} lpm</strong>.`;
+          clicks = []; // Resetear para la próxima medición
+        }
+      }
+
+      // --- ASIGNACIÓN DE EVENTOS ---
+      newEcgBtn.addEventListener('click', startNewGame);
+      verifyBtn.addEventListener('click', verifyAnswer);
+      canvas.addEventListener('click', handleCorrectionClick);
+
+      // --- INICIAR JUEGO POR PRIMERA VEZ ---
+      startNewGame();
+    });
+  </script>
+</body>
+
+</html>
