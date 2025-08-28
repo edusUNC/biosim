@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BarChart3, Eye, MousePointer, TrendingUp } from 'lucide-react';
+import { BarChart3, Eye, MousePointer, TrendingUp, ExternalLink } from 'lucide-react';
 
 interface AnalyticsEvent {
   type: string;
@@ -12,11 +12,13 @@ interface AnalyticsEvent {
 export default function AnalyticsDebug() {
   const [events, setEvents] = useState<AnalyticsEvent[]>([]);
   const [isVisible, setIsVisible] = useState(false);
+  const [gaId, setGaId] = useState<string>('');
 
   useEffect(() => {
     // Solo mostrar en desarrollo
     if (process.env.NODE_ENV === 'development') {
       setIsVisible(true);
+      setGaId(process.env.NEXT_PUBLIC_GA_ID || 'No configurado');
     }
   }, []);
 
@@ -37,13 +39,19 @@ export default function AnalyticsDebug() {
     setEvents(mockEvents);
   }, []);
 
+  const openGoogleAnalytics = () => {
+    if (gaId && gaId !== 'No configurado') {
+      window.open(`https://analytics.google.com/analytics/web/#/p${gaId}/reports/intelligenthome`, '_blank');
+    }
+  };
+
   if (!isVisible) return null;
 
   return (
     <div className="analytics-debug">
       <div className="analytics-debug-header">
         <BarChart3 size={16} />
-        <span>Analytics Debug</span>
+        <span>Google Analytics Debug</span>
         <button 
           onClick={() => setIsVisible(false)}
           className="analytics-debug-close"
@@ -64,6 +72,19 @@ export default function AnalyticsDebug() {
           <div className="stat-item">
             <TrendingUp size={14} />
             <span>Total Events: {events.length}</span>
+          </div>
+          <div className="stat-item">
+            <ExternalLink size={14} />
+            <span>GA ID: {gaId}</span>
+            {gaId && gaId !== 'No configurado' && (
+              <button 
+                onClick={openGoogleAnalytics}
+                className="analytics-debug-link"
+                title="Abrir Google Analytics"
+              >
+                <ExternalLink size={12} />
+              </button>
+            )}
           </div>
         </div>
         <div className="analytics-events">

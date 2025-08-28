@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { simuladores, categorias, Simulador } from '../data/simuladores';
 import { getCategoryColors } from '../data/categoryColors';
 import { useTheme } from '../hooks/useTheme';
-import { useAnalytics } from '../hooks/useAnalytics';
+import { useGoogleAnalytics } from '../hooks/useGoogleAnalytics';
 import Footer from '../components/Footer';
 import AnalyticsDebug from '../components/AnalyticsDebug';
 import { Search, BookOpen, Heart, Brain, Zap, Filter, Sparkles } from 'lucide-react';
@@ -17,7 +17,7 @@ export default function Home() {
   useTheme(categoriaFiltro === 'todas' ? '' : categoriaFiltro);
   
   // Analytics
-  const { trackCategoryFilter, trackSearch, trackPageView } = useAnalytics();
+  const { trackCategoryFilter, trackSearch, trackPageView } = useGoogleAnalytics();
   
   // Trackear vista de página al cargar
   useEffect(() => {
@@ -176,7 +176,7 @@ function SimuladorCard({ simulador }: { simulador: Simulador }) {
 
   const Icon = getCategoryIcon(simulador.categoria);
   const categoryColors = getCategoryColors(simulador.categoria);
-  const { trackSimulatorOpen } = useAnalytics();
+  const { trackSimulatorOpen } = useGoogleAnalytics();
 
   const handleSimulatorClick = () => {
     trackSimulatorOpen(simulador.id, simulador.nombre, simulador.categoria);

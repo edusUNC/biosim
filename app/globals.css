@@ -619,3 +619,19 @@ body {
 .event-time {
   color: var(--text-light);
 }
+
+.analytics-debug-link {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 3px;
+  transition: var(--transition);
+  margin-left: 0.5rem;
+}
+
+.analytics-debug-link:hover {
+  background: var(--bg-tertiary);
+  color: var(--primary-dark);
+}
