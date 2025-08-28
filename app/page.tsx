@@ -2,12 +2,17 @@
 
 import { useState, useMemo } from 'react';
 import { simuladores, categorias, Simulador } from '../data/simuladores';
+import { getCategoryColors } from '../data/categoryColors';
+import { useTheme } from '../hooks/useTheme';
 import Footer from '../components/Footer';
 import { Search, BookOpen, Heart, Brain, Zap, Filter, Sparkles } from 'lucide-react';
 
 export default function Home() {
   const [categoriaFiltro, setCategoriaFiltro] = useState<string>('todas');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  
+  // Aplicar tema dinámico basado en la categoría seleccionada
+  useTheme(categoriaFiltro === 'todas' ? '' : categoriaFiltro);
 
   const simuladoresFiltrados = useMemo(() => {
     let filtered = simuladores;
@@ -74,6 +79,11 @@ export default function Home() {
               <Filter />
               <span>{simuladoresFiltrados.length} de {simuladores.length} simuladores disponibles</span>
             </div>
+            {categoriaFiltro !== 'todas' && (
+              <div className="category-indicator">
+                <span>Filtrando por: {categoriaFiltro}</span>
+              </div>
+            )}
           </div>
 
           {/* Filtros */}
@@ -140,17 +150,34 @@ function SimuladorCard({ simulador }: { simulador: Simulador }) {
   };
 
   const Icon = getCategoryIcon(simulador.categoria);
+  const categoryColors = getCategoryColors(simulador.categoria);
 
   return (
     <div className="simulator-card">
-      {/* Header con gradiente */}
-      <div className="card-header">
+      {/* Header con colores temáticos */}
+      <div 
+        className="card-header"
+        style={{
+          backgroundColor: categoryColors.background,
+          borderBottomColor: categoryColors.border
+        }}
+      >
         <div className="card-header-content">
-          <div className="card-icon">
+          <div 
+            className="card-icon"
+            style={{
+              backgroundColor: categoryColors.primary
+            }}
+          >
             <Icon />
           </div>
           <div>
-            <span className="card-category">
+            <span 
+              className="card-category"
+              style={{
+                color: categoryColors.text
+              }}
+            >
               {simulador.categoria}
             </span>
           </div>

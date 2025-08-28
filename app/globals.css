@@ -41,6 +41,11 @@ body {
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   --border-radius: 12px;
   --transition: all 0.2s ease-in-out;
+
+  /* Variables para colores temáticos por categoría */
+  --category-bg: #f8fafc;
+  --category-border: #e2e8f0;
+  --category-text: #1e293b;
 }
 
 /* Layout principal */
@@ -170,6 +175,10 @@ body {
 .stats {
   text-align: center;
   margin-bottom: 2rem;
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  align-items: center;
 }
 
 .stats-badge {
@@ -184,6 +193,19 @@ body {
   color: var(--text-secondary);
   font-weight: 500;
   font-size: 0.875rem;
+}
+
+.category-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--primary-color);
+  color: white;
+  border-radius: 50px;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  animation: fadeIn 0.3s ease-out;
 }
 
 /* Filtros */
@@ -223,6 +245,8 @@ body {
   background: var(--primary-color);
   color: white;
   border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  transform: scale(1.05);
 }
 
 /* Grid de simuladores */
@@ -255,6 +279,11 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
+/* Transición suave para cambios de tema */
+.simulator-card * {
+  transition: var(--transition);
+}
+
 .simulator-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
@@ -263,8 +292,9 @@ body {
 
 .card-header {
   padding: 1rem;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
+  background: var(--category-bg);
+  border-bottom: 1px solid var(--category-border);
+  transition: var(--transition);
 }
 
 .card-header-content {
@@ -292,9 +322,10 @@ body {
 .card-category {
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--category-text);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  transition: var(--transition);
 }
 
 .card-content {
