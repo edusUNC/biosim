@@ -7,6 +7,7 @@ import { useTheme } from '../hooks/useTheme';
 import { useGoogleAnalytics } from '../hooks/useGoogleAnalytics';
 import Footer from '../components/Footer';
 import AnalyticsDebug from '../components/AnalyticsDebug';
+import GAStatus from '../components/GAStatus';
 import { Search, BookOpen, Heart, Brain, Zap, Filter, Sparkles } from 'lucide-react';
 
 export default function Home() {
@@ -159,6 +160,7 @@ export default function Home() {
 
       <Footer />
       <AnalyticsDebug />
+      <GAStatus />
     </div>
   );
 }
