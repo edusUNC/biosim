@@ -1,4 +1,4 @@
-import { Github, Mail, ExternalLink, Sparkles } from "lucide-react";
+import { Mail, ExternalLink, Sparkles } from "lucide-react";
 
 const Footer = () => {
   return (
@@ -14,7 +14,6 @@ const Footer = () => {
               <h3 className="brand-title" style={{ fontSize: '1.25rem', margin: 0 }}>
                 Simuladores FIBI
               </h3>
-             
             </div>
           </div>
 

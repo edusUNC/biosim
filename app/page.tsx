@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import Link from 'next/link';
 import { simuladores, categorias, Simulador } from '../data/simuladores';
 import { getCategoryColors } from '../data/categoryColors';
 import { useTheme } from '../hooks/useTheme';
-import { useGoogleAnalytics } from '../hooks/useGoogleAnalytics';
 import Footer from '../components/Footer';
 import AnalyticsDebug from '../components/AnalyticsDebug';
-import GAStatus from '../components/GAStatus';
 import { Search, BookOpen, Heart, Brain, Zap, Filter, Sparkles } from 'lucide-react';
 
 export default function Home() {
@@ -17,13 +16,7 @@ export default function Home() {
   // Aplicar tema dinámico basado en la categoría seleccionada
   useTheme(categoriaFiltro === 'todas' ? '' : categoriaFiltro);
   
-  // Analytics
-  const { trackCategoryFilter, trackSearch, trackPageView } = useGoogleAnalytics();
-  
-  // Trackear vista de página al cargar
-  useEffect(() => {
-    trackPageView('home');
-  }, [trackPageView]);
+
 
   const simuladoresFiltrados = useMemo(() => {
     let filtered = simuladores;
@@ -43,19 +36,7 @@ export default function Home() {
     return filtered;
   }, [categoriaFiltro, searchTerm]);
 
-  // Trackear cambios de filtro
-  useEffect(() => {
-    if (categoriaFiltro !== 'todas') {
-      trackCategoryFilter(categoriaFiltro);
-    }
-  }, [categoriaFiltro, trackCategoryFilter]);
 
-  // Trackear búsquedas
-  useEffect(() => {
-    if (searchTerm.trim()) {
-      trackSearch(searchTerm, simuladoresFiltrados.length);
-    }
-  }, [searchTerm, simuladoresFiltrados.length, trackSearch]);
 
   const getCategoryIcon = (categoria: string) => {
     const icons = {
@@ -160,7 +141,6 @@ export default function Home() {
 
       <Footer />
       <AnalyticsDebug />
-      <GAStatus />
     </div>
   );
 }
@@ -178,11 +158,6 @@ function SimuladorCard({ simulador }: { simulador: Simulador }) {
 
   const Icon = getCategoryIcon(simulador.categoria);
   const categoryColors = getCategoryColors(simulador.categoria);
-  const { trackSimulatorOpen } = useGoogleAnalytics();
-
-  const handleSimulatorClick = () => {
-    trackSimulatorOpen(simulador.id, simulador.nombre, simulador.categoria);
-  };
 
   return (
     <div className="simulator-card">
@@ -227,16 +202,13 @@ function SimuladorCard({ simulador }: { simulador: Simulador }) {
         </p>
 
         {/* Botón de acción */}
-        <a
-          href={`/simuladores/${simulador.archivo}`}
-          target="_blank"
-          rel="noopener noreferrer"
+        <Link
+          href={`/simulador/${simulador.id}`}
           className="card-button"
-          onClick={handleSimulatorClick}
         >
           <BookOpen />
-          Abrir Simulador
-        </a>
+          Ver Simulador
+        </Link>
       </div>
     </div>
   );

@@ -12,13 +12,11 @@ interface AnalyticsEvent {
 export default function AnalyticsDebug() {
   const [events, setEvents] = useState<AnalyticsEvent[]>([]);
   const [isVisible, setIsVisible] = useState(false);
-  const [gaId, setGaId] = useState<string>('');
 
   useEffect(() => {
     // Solo mostrar en desarrollo
     if (process.env.NODE_ENV === 'development') {
       setIsVisible(true);
-      setGaId(process.env.NEXT_PUBLIC_GA_ID || 'No configurado');
     }
   }, []);
 
@@ -26,23 +24,21 @@ export default function AnalyticsDebug() {
     // Simular eventos de analytics para debug
     const mockEvents: AnalyticsEvent[] = [
       {
-        type: 'simulator_opened',
-        data: { simulator_id: 'ecg', simulator_name: 'Simulador ECG', category: 'Cardiología' },
+        type: 'page_view',
+        data: { page: '/simulador/ecg', simulator: 'ECG' },
         timestamp: new Date().toISOString()
       },
       {
-        type: 'category_filtered',
-        data: { category: 'Cardiología' },
+        type: 'page_view',
+        data: { page: '/simulador/dipolo', simulator: 'Dipolo' },
         timestamp: new Date().toISOString()
       }
     ];
     setEvents(mockEvents);
   }, []);
 
-  const openGoogleAnalytics = () => {
-    if (gaId && gaId !== 'No configurado') {
-      window.open(`https://analytics.google.com/analytics/web/#/p${gaId}/reports/intelligenthome`, '_blank');
-    }
+  const openVercelAnalytics = () => {
+    window.open('https://vercel.com/dashboard', '_blank');
   };
 
   if (!isVisible) return null;
@@ -51,7 +47,7 @@ export default function AnalyticsDebug() {
     <div className="analytics-debug">
       <div className="analytics-debug-header">
         <BarChart3 size={16} />
-        <span>Google Analytics Debug</span>
+        <span>Vercel Analytics Debug</span>
         <button 
           onClick={() => setIsVisible(false)}
           className="analytics-debug-close"
@@ -67,7 +63,7 @@ export default function AnalyticsDebug() {
           </div>
           <div className="stat-item">
             <MousePointer size={14} />
-            <span>Simulators Opened: {events.filter(e => e.type === 'simulator_opened').length}</span>
+            <span>Simulator Pages: {events.filter(e => e.type === 'page_view').length}</span>
           </div>
           <div className="stat-item">
             <TrendingUp size={14} />
@@ -75,23 +71,21 @@ export default function AnalyticsDebug() {
           </div>
           <div className="stat-item">
             <ExternalLink size={14} />
-            <span>GA ID: {gaId}</span>
-            {gaId && gaId !== 'No configurado' && (
-              <button 
-                onClick={openGoogleAnalytics}
-                className="analytics-debug-link"
-                title="Abrir Google Analytics"
-              >
-                <ExternalLink size={12} />
-              </button>
-            )}
+            <span>Vercel Analytics</span>
+            <button 
+              onClick={openVercelAnalytics}
+              className="analytics-debug-link"
+              title="Abrir Vercel Analytics"
+            >
+              <ExternalLink size={12} />
+            </button>
           </div>
         </div>
         <div className="analytics-events">
-          <h4>Recent Events:</h4>
+          <h4>Recent Page Views:</h4>
           {events.slice(-3).map((event, index) => (
             <div key={index} className="event-item">
-              <span className="event-type">{event.type}</span>
+              <span className="event-type">{event.data.page}</span>
               <span className="event-time">
                 {new Date(event.timestamp).toLocaleTimeString()}
               </span>
