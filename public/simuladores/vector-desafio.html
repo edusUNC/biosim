@@ -227,10 +227,10 @@
 
       const leads = { 'DI': { angle: 0 }, 'DII': { angle: 60 }, 'DIII': { angle: 120 }, 'aVR': { angle: -150 }, 'aVL': { angle: -30 }, 'aVF': { angle: 90 } };
 
-      // --- MODO DESAFÍO: LISTA AMPLIADA Y LÓGICA DE CRONÓMETRO ---
+      // --- MODO DESAFÍO: LISTA CORREGIDA Y MEJORADA ---
       const challenges = [
         // Nivel Fácil: Conceptos básicos
-        { desc: "Comencemos: coloca el eje en un 'Eje Normal'.", type: 'range', range: [-30, 90] },
+        { desc: "Comencemos: coloca el eje en un ángulo normal y común (ej. +60°).", type: 'angle', target: 60, tol: 10 },
         { desc: "Haz que DI sea lo más POSITIVA posible.", type: 'angle', target: 0, tol: 5 },
         { desc: "Ahora, haz que aVF sea lo más POSITIVA posible.", type: 'angle', target: 90, tol: 5 },
         { desc: "Busca el punto donde DII es máxima.", type: 'angle', target: 60, tol: 5 },
@@ -238,21 +238,21 @@
         // Nivel Intermedio: Isoeléctricas y Desviaciones
         { desc: "Encuentra el punto donde DI es ISOELÉCTRICA.", type: 'angle', target: 90, tol: 3 },
         { desc: "Ahora, haz que DIII sea ISOELÉCTRICA.", type: 'angle', target: 30, tol: 3 },
-        { desc: "Mueve el eje a una 'Desviación a la Izquierda'.", type: 'range', range: [-31, -90] },
-        { desc: "Encuentra el ángulo para una 'Desviación a la Derecha'.", type: 'range', range: [91, 180] },
+        { desc: "Mueve el eje a un ángulo TÍPICO de 'Desviación a la Izquierda' (ej. -45°).", type: 'angle', target: -45, tol: 10 },
+        { desc: "Encuentra un ángulo CARACTERÍSTICO de 'Desviación a la Derecha' (ej. +120°).", type: 'angle', target: 120, tol: 10 },
         { desc: "Haz que aVL sea ISOELÉCTRICA.", type: 'angle', target: 60, tol: 3 },
         // Nivel Difícil: Combinación de derivaciones
-        { desc: "DI es POSITIVA y aVF es NEGATIVA.", type: 'range', range: [-1, -89] },
-        { desc: "DI es NEGATIVA y aVF es POSITIVA.", type: 'range', range: [91, 179] },
-        { desc: "DII, DIII y aVF son todas POSITIVAS.", type: 'range', range: [0, 60] },
-        { desc: "DII, DIII y aVF son todas NEGATIVAS.", type: 'range', range: [-120, -180] },
+        { desc: "Busca un eje donde DI es POSITIVA y aVF es NEGATIVA (ej. -35°).", type: 'angle', target: -35, tol: 10 },
+        { desc: "Busca un eje donde DI es NEGATIVA y aVF es POSITIVA (ej. +110°).", type: 'angle', target: 110, tol: 10 },
+        { desc: "Apunta a un eje donde DII, DIII y aVF son todas POSITIVAS (ej. +75°).", type: 'angle', target: 75, tol: 15 },
+        { desc: "Apunta a un eje donde DII, DIII y aVF son todas NEGATIVAS (ej. -150°).", type: 'angle', target: -150, tol: 15 },
         { desc: "DI y DII son POSITIVAS, DIII es ISOELÉCTRICA.", type: 'angle', target: 30, tol: 3 },
         // Nivel Experto: Escenarios clínicos
         { desc: "Muestra un eje típico de un Hemibloqueo Anterior Izquierdo (aprox. -60°).", type: 'angle', target: -60, tol: 10 },
         { desc: "Muestra un eje típico de un Hemibloqueo Posterior Izquierdo (aprox. +120°).", type: 'angle', target: 120, tol: 10 },
         { desc: "Haz que aVR sea ISOELÉCTRICA.", type: 'angle', target: -60, tol: 3 },
-        { desc: "DI es NEGATIVA y aVL es POSITIVA.", type: 'range', range: [-91, -179] },
-        { desc: "¡Final! El eje más odiado: 'Desviación Extrema' (Tierra de Nadie).", type: 'range', range: [-91, -179] },
+        { desc: "Busca donde DI es NEGATIVA y aVL es POSITIVA (ej. -120°).", type: 'angle', target: -120, tol: 10 },
+        { desc: "¡Final! El eje más odiado: un ejemplo de 'Desviación Extrema' (ej. -135°).", type: 'angle', target: -135, tol: 15 },
       ];
       let currentChallengeIndex = 0;
       let timer = { interval: null, startTime: 0 };
