@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador v3.1: Fisiología de Fibras (Corregido)</title>
+  <style>
+    :root {
+      --color-background: #f4f7f9;
+      --color-text: #333;
+      --color-primary: #005a9c;
+      --color-accent: #e67e22;
+      --color-border: #ccc;
+      --color-lesion: #d9534f;
+      --color-field-defect: #333;
+      /* Defecto visual (negro) */
+      --color-retina-defect: #bbb;
+      /* Retina "muerta" (gris) */
+      --color-correct: #2ecc71;
+      --color-fibra-temporal: #d9534f;
+      /* Rojo */
+      --color-fibra-nasal: #005a9c;
+      /* Azul */
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background-color: var(--color-background);
+      color: var(--color-text);
+      line-height: 1.6;
+      margin: 0;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .simulator-container {
+      width: 100%;
+      max-width: 1200px;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      padding: 1.5rem;
+    }
+
+    header {
+      text-align: center;
+      border-bottom: 1px solid var(--color-border);
+      padding-bottom: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    header h1 {
+      color: var(--color-primary);
+      margin: 0;
+    }
+
+    .mode-switcher {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      font-weight: 500;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 28px;
+    }
+
+    .switch input {
+      display: none;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 28px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked+.slider {
+      background-color: var(--color-accent);
+    }
+
+    input:checked+.slider:before {
+      transform: translateX(22px);
+    }
+
+
+    main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      align-items: flex-start;
+    }
+
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .controls-panel,
+    .results-panel {
+      padding: 1.5rem;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+    }
+
+    .controls-panel {
+      text-align: center;
+    }
+
+    .controls-panel h2 {
+      margin-top: 0;
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--color-primary);
+    }
+
+    #btn-reset {
+      margin-top: 1.5rem;
+      width: 100%;
+      padding: 0.8rem;
+      font-size: 1rem;
+      font-weight: 600;
+      background-color: var(--color-accent);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    #btn-reset:hover {
+      background-color: #d35400;
+    }
+
+    /* --- Exam Panel Styling --- */
+    .exam-panel {
+      display: none;
+      /* Hidden by default */
+    }
+
+    #btn-next-question {
+      width: 100%;
+      padding: 0.8rem;
+      font-size: 1rem;
+      font-weight: 600;
+      background-color: var(--color-primary);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    /* --- Mode Toggling --- */
+    body.examen-mode #practice-panel {
+      display: none;
+    }
+
+    body.examen-mode #exam-panel {
+      display: block;
+    }
+
+    body.examen-mode #result-name {
+      display: none;
+    }
+
+    .results-panel h2 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--color-primary);
+      margin-top: 0;
+      text-align: center;
+    }
+
+    .visual-display-container {
+      display: flex;
+      justify-content: space-around;
+      margin-bottom: 1rem;
+    }
+
+    .field {
+      text-align: center;
+    }
+
+    .field-label {
+      font-weight: 500;
+    }
+
+    .field-svg {
+      border: 1px solid var(--color-border);
+      border-radius: 50%;
+    }
+
+    #result-text-container {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background-color: #f9f9f9;
+      border-left: 4px solid var(--color-primary);
+      min-height: 5em;
+      transition: border-color 0.3s;
+    }
+
+    #result-text-container.correct {
+      border-left-color: var(--color-correct);
+      background-color: #f0fff4;
+    }
+
+    #result-text-container.incorrect {
+      border-left-color: var(--color-lesion);
+      background-color: #fff8f8;
+    }
+
+    #result-name {
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+
+    #result-description {
+      font-size: 0.95rem;
+    }
+
+    .diagram-container {
+      grid-column: 1 / -1;
+      /* Span both columns */
+      margin-top: 1rem;
+    }
+
+    #optic-pathway-svg {
+      width: 100%;
+      height: auto;
+      max-width: 800px;
+      margin: 0 auto;
+      display: block;
+    }
+
+    /* --- SVG Styles --- */
+    .structure {
+      fill: #e0e0e0;
+      stroke: #888;
+    }
+
+    .structure-label {
+      font-size: 12px;
+      font-style: italic;
+      text-anchor: middle;
+    }
+
+    /* Fiber styles */
+    .fibra {
+      fill: none;
+      stroke-width: 3;
+      transition: stroke 0.3s, stroke-dasharray 0.3s, opacity 0.3s;
+    }
+
+    .fibra-temporal {
+      stroke: var(--color-fibra-temporal);
+    }
+
+    .fibra-nasal {
+      stroke: var(--color-fibra-nasal);
+    }
+
+    .fibra.desactivada {
+      stroke: #bbb;
+      stroke-dasharray: 5 5;
+      opacity: 0.8;
+    }
+
+    /* Retina halves */
+    .retina-temporal {
+      fill: var(--color-fibra-temporal);
+      opacity: 0.3;
+    }
+
+    .retina-nasal {
+      fill: var(--color-fibra-nasal);
+      opacity: 0.3;
+    }
+
+    /* Lesion interaction */
+    .lesion-cut {
+      stroke: var(--color-lesion);
+      stroke-width: 5;
+      stroke-dasharray: 8 4;
+      display: none;
+      opacity: 0.9;
+      pointer-events: none;
+      animation: pulse 1.5s infinite;
+    }
+
+    .lesion-cut.active {
+      display: block;
+    }
+
+    @keyframes pulse {
+      0% {
+        opacity: 0.7;
+      }
+
+      50% {
+        opacity: 1;
+      }
+
+      100% {
+        opacity: 0.7;
+      }
+    }
+
+    .lesion-group {
+      cursor: pointer;
+    }
+
+    .lesion-point {
+      fill: var(--color-lesion);
+      transition: r 0.2s;
+    }
+
+    .lesion-group:hover .lesion-point {
+      r: 9;
+    }
+
+    .lesion-point.active {
+      stroke: var(--color-accent);
+      stroke-width: 3px;
+      r: 9;
+    }
+
+    .lesion-label {
+      font-size: 14px;
+      font-weight: bold;
+      fill: white;
+      user-select: none;
+      pointer-events: none;
+      text-anchor: middle;
+      dominant-baseline: central;
+    }
+
+
+    .explanation {
+      margin-top: 2rem;
+      border-top: 1px solid var(--color-border);
+      padding-top: 1.5rem;
+    }
+  </style>
+</head>
+
+<body class="practica-mode">
+
+  <div class="simulator-container">
+    <header>
+      <h1>Simulador de Vía Óptica v3.1 (Fisiología de Fibras)</h1>
+      <div class="mode-switcher">
+        <label for="mode-toggle">Modo Práctica</label>
+        <label class="switch">
+          <input type="checkbox" id="mode-toggle">
+          <span class="slider round"></span>
+        </label>
+        <label for="mode-toggle">Modo Examen</label>
+      </div>
+    </header>
+
+    <main>
+      <div class="controls-panel">
+        <div id="practice-panel">
+          <h2>Modo Práctica</h2>
+          <p>Haz clic en un número (1-7) del diagrama para simular una lesión. Observa qué fibras se cortan.</p>
+        </div>
+        <div id="exam-panel" class="exam-panel">
+          <h2>Modo Examen 🧠</h2>
+          <p>Observa el defecto visual (Paso 3) y haz clic en la lesión que lo causa.</p>
+          <button id="btn-next-question" type="button">Siguiente Pregunta</button>
+        </div>
+        <button type="button" id="btn-reset">Restablecer Fibras</button>
+      </div>
+
+      <div class="results-panel">
+
+        <h2>2. Hemiretinas (Proyección)</h2>
+        <div class="visual-display-container">
+          <div class="field">
+            <div class="field-label">Retina Izquierda</div>
+            <svg id="left-retina-field" class="field-svg" width="120" height="120" viewBox="-60 -60 120 120">
+              <defs>
+                <path id="retina-temporal"
+                  d="M 0,0 L 50,0 A 50,50 0 0 1 0,50 L 0,0 A 50,50 0 0 1 50,0 Z M 0,0 L 0,-50 A 50,50 0 0 1 50,0 L 0,0 Z">
+                </path>
+                <path id="retina-nasal"
+                  d="M 0,0 L 0,50 A 50,50 0 0 1 -50,0 L 0,0 Z M 0,0 L -50,0 A 50,50 0 0 1 0,-50 L 0,0 Z"></path>
+              </defs>
+              <circle cx="0" cy="0" r="50" fill="white" stroke="#aaa" />
+              <use id="left-retina-T" href="#retina-temporal" fill="var(--color-fibra-temporal)" opacity="0.3" />
+              <use id="left-retina-N" href="#retina-nasal" fill="var(--color-fibra-nasal)" opacity="0.3" />
+              <line x1="0" x2="0" y1="-50" y2="50" stroke="#ccc" stroke-width="0.5" />
+              <text x="55" y="5" dominant-baseline="middle" text-anchor="start" font-size="10">T</text>
+              <text x="-55" y="5" dominant-baseline="middle" text-anchor="end" font-size="10">N</text>
+            </svg>
+          </div>
+          <div class="field">
+            <div class="field-label">Retina Derecha</div>
+            <svg id="right-retina-field" class="field-svg" width="120" height="120" viewBox="-60 -60 120 120">
+              <circle cx="0" cy="0" r="50" fill="white" stroke="#aaa" />
+              <use id="right-retina-T" href="#retina-temporal" fill="var(--color-fibra-temporal)" opacity="0.3" />
+              <use id="right-retina-N" href="#retina-nasal" fill="var(--color-fibra-nasal)" opacity="0.3" />
+              <line x1="0" x2="0" y1="-50" y2="50" stroke="#ccc" stroke-width="0.5" />
+              <text x="55" y="5" dominant-baseline="middle" text-anchor="start" font-size="10">T</text>
+              <text x="-55" y="5" dominant-baseline="middle" text-anchor="end" font-size="10">N</text>
+            </svg>
+          </div>
+        </div>
+
+        <h2>3. Campo Visual (Percepción)</h2>
+        <div class="visual-display-container">
+          <div class="field">
+            <div class="field-label">Ojo Izquierdo</div>
+            <svg id="left-eye-field" class="field-svg" width="120" height="120" viewBox="-60 -60 120 120">
+              <defs>
+                <path id="field-temporal-path"
+                  d="M 0,0 L 50,0 A 50,50 0 0 1 0,50 L 0,0 A 50,50 0 0 1 50,0 Z M 0,0 L 0,-50 A 50,50 0 0 1 50,0 L 0,0 Z">
+                </path>
+                <path id="field-nasal-path"
+                  d="M 0,0 L 0,50 A 50,50 0 0 1 -50,0 L 0,0 Z M 0,0 L -50,0 A 50,50 0 0 1 0,-50 L 0,0 Z"></path>
+                <path id="field-macula" d="M 0,0 m -5,0 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0"></path>
+              </defs>
+              <circle cx="0" cy="0" r="50" fill="white" stroke="#aaa" />
+              <use id="left-field-T" href="#field-nasal-path" fill="white" />
+              <use id="left-field-N" href="#field-temporal-path" fill="white" />
+              <use id="left-macula" href="#field-macula" fill="white" />
+              <line x1="0" x2="0" y1="-50" y2="50" stroke="#ccc" stroke-width="0.5" />
+              <text x="55" y="5" dominant-baseline="middle" text-anchor="start" font-size="10">N</text>
+              <text x="-55" y="5" dominant-baseline="middle" text-anchor="end" font-size="10">T</text>
+            </svg>
+          </div>
+          <div class="field">
+            <div class="field-label">Ojo Derecho</div>
+            <svg id="right-eye-field" class="field-svg" width="120" height="120" viewBox="-60 -60 120 120">
+              <circle cx="0" cy="0" r="50" fill="white" stroke="#aaa" />
+              <use id="right-field-T" href="#field-temporal-path" fill="white" />
+              <use id="right-field-N" href="#field-nasal-path" fill="white" />
+              <use id="right-macula" href="#field-macula" fill="white" />
+              <line x1="0" x2="0" y1="-50" y2="50" stroke="#ccc" stroke-width="0.5" />
+              <text x="55" y="5" dominant-baseline="middle" text-anchor="start" font-size="10">T</text>
+              <text x="-55" y="5" dominant-baseline="middle" text-anchor="end" font-size="10">N</text>
+            </svg>
+          </div>
+        </div>
+
+        <div id="result-text-container" role="status" aria-live="polite">
+          <div id="result-name">Visión Normal</div>
+          <div id="result-description">Todas las fibras conducen la señal. El campo visual está completo.</div>
+        </div>
+      </div>
+
+      <div class="diagram-container">
+        <svg id="optic-pathway-svg" viewBox="0 0 800 600">
+          <g id="pathway-diagram">
+            <text x="200" y="55" class="structure-label">Ojo Izquierdo</text>
+            <circle cx="200" cy="80" r="30" fill="white" stroke="#888" />
+            <path class="retina-temporal" d="M 200 50 A 30 30 0 0 1 200 110" />
+            <path class="retina-nasal" d="M 200 50 A 30 30 0 0 0 200 110" />
+            <text x="215" y="80" fill="#fff" font-size="10">T</text>
+            <text x="185" y="80" fill="#fff" font-size="10">N</text>
+
+            <text x="600" y="55" class="structure-label">Ojo Derecho</text>
+            <circle cx="600" cy="80" r="30" fill="white" stroke="#888" />
+            <path class="retina-temporal" d="M 600 50 A 30 30 0 0 1 600 110" />
+            <path class="retina-nasal" d="M 600 50 A 30 30 0 0 0 600 110" />
+            <text x="615" y="80" fill="#fff" font-size="10">T</text>
+            <text x="585" y="80" fill="#fff" font-size="10">N</text>
+
+            <text x="400" y="160" class="structure-label">Quiasma Óptico</text>
+            <ellipse class="structure" cx="400" cy="180" rx="60" ry="15" />
+
+            <text x="280" y="385" class="structure-label">NGL Izq.</text>
+            <ellipse class="structure" cx="280" cy="400" rx="40" ry="15" />
+
+            <text x="520" y="385" class="structure-label">NGL Der.</text>
+            <ellipse class="structure" cx="520" cy="400" rx="40" ry="15" />
+
+            <text x="230" y="565" class="structure-label">Corteza Visual Izq.</text>
+            <path class="structure" d="M 180 500 C 200 550 280 550 300 500" />
+
+            <text x="570" y="565" class="structure-label">Corteza Visual Der.</text>
+            <path class="structure" d="M 500 500 C 520 550 600 550 620 500" />
+
+            <g id="fibras">
+              <path class="fibra fibra-temporal" data-fibra="L-T-s1" d="M 200 95 Q 250 120 350 180" />
+              <path class="fibra fibra-temporal" data-fibra="L-T-s2" d="M 350 180 C 300 250 280 300 280 390" />
+              <path class="fibra fibra-temporal" data-fibra="L-T-s3" d="M 280 410 Q 250 450 240 500" />
+              <path class="fibra fibra-nasal" data-fibra="L-N-s1" d="M 200 70 Q 280 100 370 175" />
+              <path class="fibra fibra-nasal" data-fibra="L-N-s2" d="M 370 175 C 450 190 520 250 520 390" />
+              <path class="fibra fibra-nasal" data-fibra="L-N-s3" d="M 520 410 Q 550 450 560 500" />
+
+              <path class="fibra fibra-temporal" data-fibra="R-T-s1" d="M 600 95 Q 550 120 450 180" />
+              <path class="fibra fibra-temporal" data-fibra="R-T-s2" d="M 450 180 C 500 250 520 300 520 390" />
+              <path class="fibra fibra-temporal" data-fibra="R-T-s3" d="M 520 410 Q 550 450 560 500" />
+              <path class="fibra fibra-nasal" data-fibra="R-N-s1" d="M 600 70 Q 520 100 430 175" />
+              <path class="fibra fibra-nasal" data-fibra="R-N-s2" d="M 430 175 C 350 190 280 250 280 390" />
+              <path class="fibra fibra-nasal" data-fibra="R-N-s3" d="M 280 410 Q 250 450 240 500" />
+            </g>
+
+            <g id="lesion-cuts">
+              <line class="lesion-cut" id="cut-1" x1="560" y1="110" x2="640" y2="130" />
+              <line class="lesion-cut" id="cut-7" x1="160" y1="110" x2="240" y2="130" />
+              <line class="lesion-cut" id="cut-2" x1="380" y1="170" x2="420" y2="190" />
+              <line class="lesion-cut" id="cut-3" x1="265" y1="300" x2="315" y2="320" />
+              <line class="lesion-cut" id="cut-4" x1="220" y1="440" x2="260" y2="460" />
+              <line class="lesion-cut" id="cut-5" x1="220" y1="470" x2="260" y2="490" />
+              <line class="lesion-cut" id="cut-6" x1="200" y1="510" x2="280" y2="530" />
+            </g>
+
+            <g id="lesion-points">
+              <g class="lesion-group" data-lesion-id="7">
+                <circle class="lesion-point" cx="200" cy="120" r="7"></circle><text class="lesion-label" x="200"
+                  y="120">7</text>
+              </g>
+              <g class="lesion-group" data-lesion-id="1">
+                <circle class="lesion-point" cx="600" cy="120" r="7"></circle><text class="lesion-label" x="600"
+                  y="120">1</text>
+              </g>
+              <g class="lesion-group" data-lesion-id="2">
+                <circle class="lesion-point" cx="400" cy="180" r="7"></circle><text class="lesion-label" x="400"
+                  y="180">2</text>
+              </g>
+              <g class="lesion-group" data-lesion-id="3">
+                <circle class="lesion-point" cx="290" cy="310" r="7"></circle><text class="lesion-label" x="290"
+                  y="310">3</text>
+              </g>
+              <g class="lesion-group" data-lesion-id="4">
+                <circle class="lesion-point" cx="240" cy="450" r="7"></circle><text class="lesion-label" x="240"
+                  y="450">4</text>
+              </g>
+              <g class="lesion-group" data-lesion-id="5">
+                <circle class="lesion-point" cx="240" cy="480" r="7"></circle><text class="lesion-label" x="240"
+                  y="480">5</text>
+              </g>
+              <g class="lesion-group" data-lesion-id="6">
+                <circle class="lesion-point" cx="240" cy="520" r="7"></circle><text class="lesion-label" x="240"
+                  y="520">6</text>
+              </g>
+            </g>
+          </g>
+        </svg>
+      </div>
+    </main>
+
+    <footer class="explanation">
+      <details open>
+        <summary>Explicación del Modelo (v3.1)</summary>
+        <p>
+          Esta simulación muestra las 4 vías principales de fibras y su decusación (cruce).
+        </p>
+        <ul>
+          <li><strong>Principio de Inversión (Retina vs Campo):</strong> La óptica del ojo invierte la imagen.
+            <ul>
+              <li>El campo visual <strong>Temporal</strong> (externo) incide en la hemiretina <strong>Nasal</strong>
+                (interna).</li>
+              <li>El campo visual <strong>Nasal</strong> (interno) incide en la hemiretina <strong>Temporal</strong>
+                (externa).</li>
+            </ul>
+          </li>
+          <li><strong>Fibras Temporales (Rojas):</strong> Vienen de la retina <strong>Temporal</strong> (que ve el campo
+            Nasal). <strong>NO CRUZAN</strong> en el quiasma.</li>
+          <li><strong>Fibras Nasales (Azules):</strong> Vienen de la retina <strong>Nasal</strong> (que ve el campo
+            Temporal). <strong>SÍ CRUZAN</strong> al hemisferio opuesto.</li>
+          <li><strong>Prueba (Lesión 2):</strong> Observa cómo al cortar las fibras <strong>Nasales</strong> (azules) en
+            el Paso 2, se produce un defecto en el campo <strong>Temporal</strong> (negro) en el Paso 3.</li>
+        </ul>
+      </details>
+    </footer>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+      // --- MODEL ---
+      const model = {
+        lesions: [
+          {
+            id: 1, name: "Nervio Óptico (Derecho)",
+            description: "Ceguera total del ojo derecho. Se cortan TODAS las fibras (temporales y nasales) de ese ojo.",
+            retinaDefect: { left: [], right: ['T', 'N'] },
+            fieldDefect: { left: [], right: ['T', 'N'], macularSparing: false },
+            segmentosCortados: ["R-T-s1", "R-N-s1", "R-T-s2", "R-N-s2", "R-T-s3", "R-N-s3"]
+          },
+          {
+            id: 2, name: "Quiasma Óptico (Central)",
+            description: "Hemianopsia Bitemporal. Se cortan las fibras nasales de AMBOS ojos, que son las que cruzan.",
+            retinaDefect: { left: ['N'], right: ['N'] },
+            fieldDefect: { left: ['T'], right: ['T'], macularSparing: false },
+            segmentosCortados: ["L-N-s1", "R-N-s1", "L-N-s2", "R-N-s2", "L-N-s3", "R-N-s3"]
+          },
+          {
+            id: 3, name: "Tracto Óptico (Izquierdo)",
+            description: "Hemianopsia Homónima Derecha. Se cortan las fibras temporales del ojo izquierdo y las nasales del ojo derecho.",
+            retinaDefect: { left: ['T'], right: ['N'] },
+            fieldDefect: { left: ['N'], right: ['T'], macularSparing: false },
+            segmentosCortados: ["L-T-s2", "R-N-s2", "L-T-s3", "R-N-s3"]
+          },
+          {
+            id: 4, name: "Radiación Óptica Izq. (Asa de Meyer)",
+            description: "Cuadrantanopsia Homónima Superior Derecha. Afecta fibras inferiores (temporales) de la radiación.",
+            retinaDefect: { left: ['T-inf'], right: ['N-inf'] },
+            fieldDefect: { left: ['N-sup'], right: ['T-sup'], macularSparing: false },
+            segmentosCortados: ["L-T-s3", "R-N-s3"]
+          },
+          {
+            id: 5, name: "Radiación Óptica Izq. (Parietal)",
+            description: "Cuadrantanopsia Homónima Inferior Derecha. Afecta fibras superiores (parietales) de la radiación.",
+            retinaDefect: { left: ['T-sup'], right: ['N-sup'] },
+            fieldDefect: { left: ['N-inf'], right: ['T-inf'], macularSparing: false },
+            segmentosCortados: ["L-T-s3", "R-N-s3"]
+          },
+          {
+            id: 6, name: "Corteza Visual Izquierda (con respeto macular)",
+            description: "Hemianopsia Homónima Derecha con Respeto Macular. Lesión en corteza occipital.",
+            retinaDefect: { left: ['T'], right: ['N'] },
+            fieldDefect: { left: ['N'], right: ['T'], macularSparing: true },
+            segmentosCortados: ["L-T-s3", "R-N-s3"]
+          },
+          {
+            id: 7, name: "Nervio Óptico (Izquierdo)",
+            description: "Ceguera total del ojo izquierdo. Se cortan TODAS las fibras (temporales y nasales) de ese ojo.",
+            retinaDefect: { left: ['T', 'N'], right: [] },
+            fieldDefect: { left: ['T', 'N'], right: [], macularSparing: false },
+            segmentosCortados: ["L-T-s1", "L-N-s1", "L-T-s2", "L-N-s2", "L-T-s3", "L-N-s3"]
+          }
+        ],
+        currentLesionId: null,
+        getLesionById(id) {
+          return this.lesions.find(l => l.id === id);
+        }
+      };
+
+      // --- VIEW ---
+      const view = {
+        // DOM Elements
+        body: document.body,
+        resultName: document.getElementById('result-name'),
+        resultDescription: document.getElementById('result-description'),
+        resultContainer: document.getElementById('result-text-container'),
+        svgDiagram: document.getElementById('optic-pathway-svg'),
+        btnNextQuestion: document.getElementById('btn-next-question'),
+
+        // Retina SVGs
+        leftRetinaT: document.getElementById('left-retina-T'),
+        leftRetinaN: document.getElementById('left-retina-N'),
+        rightRetinaT: document.getElementById('right-retina-T'),
+        rightRetinaN: document.getElementById('right-retina-N'),
+
+        // Field SVGs
+        leftFieldT: document.getElementById('left-field-T'),
+        leftFieldN: document.getElementById('left-field-N'),
+        rightFieldT: document.getElementById('right-field-T'),
+        rightFieldN: document.getElementById('right-field-N'),
+        leftMacula: document.getElementById('left-macula'),
+        rightMacula: document.getElementById('right-macula'),
+
+        initialize() {
+          this.reset();
+        },
+
+        update(lesion) {
+          this.updateDescription(lesion);
+          this.updateRetinaFields(lesion ? lesion.retinaDefect : null);
+          this.updateVisualFields(lesion ? lesion.fieldDefect : null);
+          this.updateActiveLesion(lesion);
+        },
+
+        updateRetinaFields(defect) {
+          const normalOpacity = '0.3';
+          const defectColor = 'var(--color-retina-defect)';
+
+          // Reset
+          this.leftRetinaT.setAttribute('fill', 'var(--color-fibra-temporal)');
+          this.leftRetinaN.setAttribute('fill', 'var(--color-fibra-nasal)');
+          this.rightRetinaT.setAttribute('fill', 'var(--color-fibra-temporal)');
+          this.rightRetinaN.setAttribute('fill', 'var(--color-fibra-nasal)');
+          [this.leftRetinaT, this.leftRetinaN, this.rightRetinaT, this.rightRetinaN].forEach(el => el.setAttribute('opacity', normalOpacity));
+
+          if (!defect) return;
+
+          if (defect.left.includes('T')) this.leftRetinaT.setAttribute('fill', defectColor);
+          if (defect.left.includes('N')) this.leftRetinaN.setAttribute('fill', defectColor);
+          if (defect.right.includes('T')) this.rightRetinaT.setAttribute('fill', defectColor);
+          if (defect.right.includes('N')) this.rightRetinaN.setAttribute('fill', defectColor);
+        },
+
+        updateVisualFields(defect) {
+          const defectColor = 'var(--color-field-defect)';
+          const normalColor = 'white';
+
+          // Reset
+          [this.leftFieldT, this.leftFieldN, this.rightFieldT, this.rightFieldN, this.leftMacula, this.rightMacula]
+            .forEach(el => el.setAttribute('fill', normalColor));
+
+          if (!defect) return;
+
+          const { left, right, macularSparing } = defect;
+
+          if (left.includes('T')) this.leftFieldT.setAttribute('fill', defectColor);
+          if (left.includes('N')) this.leftFieldN.setAttribute('fill', defectColor);
+          if (right.includes('T')) this.rightFieldT.setAttribute('fill', defectColor);
+          if (right.includes('N')) this.rightFieldN.setAttribute('fill', defectColor);
+
+          // NOTA: La lógica de cuadrantanopsia (4 y 5) sigue siendo una simplificación.
+          // Muestra el cuadrante afectado pero colorea la mitad entera.
+          // Para una precisión total, necesitaríamos 4 <path> por ojo.
+
+          if (macularSparing) {
+            this.leftMacula.setAttribute('fill', normalColor);
+            this.rightMacula.setAttribute('fill', normalColor);
+          }
+        },
+
+        updateDescription(lesion) {
+          if (lesion) {
+            this.resultName.textContent = lesion.name;
+            this.resultDescription.textContent = lesion.description;
+          } else {
+            this.resultName.textContent = "Visión Normal";
+            this.resultDescription.textContent = "Todas las fibras conducen la señal. El campo visual está completo.";
+          }
+          this.resultContainer.classList.remove('correct', 'incorrect');
+        },
+
+        updateActiveLesion(lesion) {
+          const lesionId = lesion ? lesion.id : null;
+
+          // Reset all fibers
+          this.svgDiagram.querySelectorAll('.fibra').forEach(p => p.classList.remove('desactivada'));
+
+          // Reset SVG lesion points & cuts
+          this.svgDiagram.querySelectorAll('.lesion-point').forEach(p => p.classList.remove('active'));
+          this.svgDiagram.querySelectorAll('.lesion-cut').forEach(c => c.classList.remove('active'));
+
+          if (lesionId) {
+            // Highlight point and cut
+            const activePoint = this.svgDiagram.querySelector(`.lesion-group[data-lesion-id="${lesionId}"] .lesion-point`);
+            if (activePoint) activePoint.classList.add('active');
+
+            const activeCut = this.svgDiagram.querySelector(`#cut-${lesionId}`);
+            if (activeCut) activeCut.classList.add('active');
+
+            // Deactivate fiber segments
+            lesion.segmentosCortados.forEach(segmentId => {
+              this.svgDiagram.querySelectorAll(`[data-fibra="${segmentId}"]`).forEach(path => {
+                path.classList.add('desactivada');
+              });
+            });
+          }
+        },
+
+        reset() {
+          this.update(null);
+        },
+
+        // --- Exam Mode Methods ---
+        toggleExamMode(isExam) {
+          this.body.classList.toggle('examen-mode', isExam);
+          this.body.classList.toggle('practica-mode', !isExam);
+        },
+
+        showExamFeedback(message, isCorrect) {
+          this.resultDescription.textContent = message;
+          this.resultContainer.classList.remove('correct', 'incorrect');
+          if (isCorrect === true) {
+            this.resultContainer.classList.add('correct');
+          } else if (isCorrect === false) {
+            this.resultContainer.classList.add('incorrect');
+          }
+        }
+      };
+
+      // --- CONTROLLER ---
+      const controller = {
+        isExamMode: false,
+        currentExamQuestion: null,
+        examAnswered: false,
+
+        init() {
+          view.initialize();
+          this.addEventListeners();
+          view.btnNextQuestion.disabled = true;
+        },
+
+        addEventListeners() {
+          // Reset button
+          document.getElementById('btn-reset').addEventListener('click', () => {
+            this.selectLesion(null);
+          });
+
+          // Click on SVG diagram
+          view.svgDiagram.querySelectorAll('.lesion-group').forEach(group => {
+            group.addEventListener('click', () => {
+              const lesionId = parseInt(group.dataset.lesionId, 10);
+              if (this.isExamMode) {
+                this.checkAnswer(lesionId);
+              } else {
+                this.selectLesion(lesionId);
+              }
+            });
+          });
+
+          // Mode Toggle
+          document.getElementById('mode-toggle').addEventListener('change', (e) => {
+            this.isExamMode = e.target.checked;
+            view.toggleExamMode(this.isExamMode);
+            this.selectLesion(null); // Reset on mode change
+
+            if (this.isExamMode) {
+              this.startExam();
+            } else {
+              view.updateDescription(null); // Reset to normal text
+            }
+          });
+
+          // Exam Mode: Next Question
+          view.btnNextQuestion.addEventListener('click', () => {
+            this.nextQuestion();
+          });
+        },
+
+        selectLesion(lesionId) {
+          model.currentLesionId = lesionId;
+          const lesionData = model.getLesionById(lesionId);
+          view.update(lesionData);
+        },
+
+        // --- Exam Mode Logic ---
+        startExam() {
+          view.btnNextQuestion.disabled = false;
+          this.nextQuestion();
+        },
+
+        nextQuestion() {
+          this.examAnswered = false;
+          this.selectLesion(null); // Resets view
+          view.showExamFeedback("Observa el campo visual (Paso 3) y haz clic en la lesión correspondiente.", null);
+
+          const randomIndex = Math.floor(Math.random() * model.lesions.length);
+          this.currentExamQuestion = model.lesions[randomIndex];
+
+          // Show *only* the visual defect, not the answer (retina or path)
+          view.updateVisualFields(this.currentExamQuestion.fieldDefect);
+
+          view.btnNextQuestion.disabled = true;
+        },
+
+        checkAnswer(clickedLesionId) {
+          if (this.examAnswered) return; // Prevent re-answering
+          this.examAnswered = true;
+          view.btnNextQuestion.disabled = false;
+
+          const correctLesion = this.currentExamQuestion;
+          const correct = (clickedLesionId === correctLesion.id);
+
+          if (correct) {
+            view.showExamFeedback(`¡Correcto! Es: #${correctLesion.id} ${correctLesion.name}`, true);
+          } else {
+            view.showExamFeedback(`Incorrecto. La respuesta correcta era #${correctLesion.id}: ${correctLesion.name}`, false);
+          }
+
+          // Show the full answer (fibers, retina, and cut)
+          this.selectLesion(correctLesion.id);
+        }
+      };
+
+      controller.init();
+    });
+  </script>
+</body>
+
+</html>

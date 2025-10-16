@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador de Flujo Vascular Fisiológico</title>
+  <style>
+    /* --- Estilos Generales --- */
+    :root {
+      --color-primario: #005f73;
+      --color-secundario: #0a9396;
+      --color-terciario: #94d2bd;
+      --color-fondo: #f4f4f9;
+      --color-panel: #ffffff;
+      --color-texto: #333;
+      --color-borde: #dee2e6;
+      --color-sombra: rgba(0, 0, 0, 0.1);
+      --radio-borde: 8px;
+      --fuente-principal: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+    }
+
+    body {
+      font-family: var(--fuente-principal);
+      background-color: var(--color-fondo);
+      color: var(--color-texto);
+      line-height: 1.6;
+      margin: 0;
+      padding: 1em;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      max-width: 1300px;
+      width: 100%;
+      display: grid;
+      grid-template-columns: 400px 1fr;
+      gap: 2em;
+    }
+
+    @media (max-width: 1000px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* --- Paneles y Tarjetas --- */
+    .panel {
+      background-color: var(--color-panel);
+      border: 1px solid var(--color-borde);
+      border-radius: var(--radio-borde);
+      box-shadow: 0 4px 6px var(--color-sombra);
+      padding: 1.5em;
+    }
+
+    header {
+      grid-column: 1 / -1;
+      border-bottom: 2px solid var(--color-primario);
+      padding-bottom: 1em;
+      margin-bottom: 1em;
+    }
+
+    h1,
+    h2,
+    legend {
+      color: var(--color-primario);
+      font-weight: 600;
+    }
+
+    h1 {
+      margin-top: 0;
+    }
+
+    /* --- Controles (Formulario y Botón) --- */
+    form fieldset {
+      border: 1px solid var(--color-borde);
+      border-radius: var(--radio-borde);
+      padding: 1em;
+    }
+
+    .control-group {
+      margin-bottom: 1.25em;
+    }
+
+    .control-group label {
+      display: block;
+      margin-bottom: 0.5em;
+      font-weight: 500;
+    }
+
+    .control-group input[type="range"] {
+      width: 100%;
+      accent-color: var(--color-secundario);
+    }
+
+    .value-display {
+      font-weight: bold;
+      color: var(--color-secundario);
+      margin-left: 0.5em;
+    }
+
+    #resetButton {
+      width: 100%;
+      padding: 0.8em;
+      margin-top: 1em;
+      font-size: 1em;
+      font-weight: bold;
+      color: var(--color-primario);
+      background-color: var(--color-terciario);
+      border: none;
+      border-radius: var(--radio-borde);
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    #resetButton:hover {
+      background-color: #78c4b1;
+    }
+
+    /* --- Resultados y Gráfico --- */
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1em;
+      margin-bottom: 1.5em;
+    }
+
+    .result-card {
+      background-color: var(--color-fondo);
+      padding: 1em;
+      border-radius: var(--radio-borde);
+      text-align: center;
+    }
+
+    .result-card .label {
+      font-size: 0.9em;
+      opacity: 0.8;
+    }
+
+    .result-card .value {
+      font-size: 1.4em;
+      font-weight: bold;
+      color: var(--color-primario);
+      white-space: nowrap;
+    }
+
+    .result-card .unit {
+      font-size: 0.8em;
+    }
+
+    #simulationCanvas {
+      width: 100%;
+      height: 450px;
+      border: 1px solid var(--color-borde);
+      border-radius: var(--radio-borde);
+      background-color: #fcfdff;
+    }
+
+    /* --- Panel de Explicación --- */
+    details {
+      margin-top: 1.5em;
+      border: 1px solid var(--color-borde);
+      border-radius: var(--radio-borde);
+    }
+
+    summary {
+      cursor: pointer;
+      padding: 1em;
+      font-weight: 500;
+      background-color: var(--color-fondo);
+      border-radius: var(--radio-borde);
+    }
+
+    details[open] summary {
+      border-bottom: 1px solid var(--color-borde);
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+
+    .explanation-content {
+      padding: 1em;
+    }
+
+    h3 {
+      color: var(--color-secundario);
+    }
+
+    /* --- Footer --- */
+    footer {
+      grid-column: 1 / -1;
+      text-align: center;
+      margin-top: 2em;
+      font-size: 0.9em;
+      color: #777;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <header>
+      <h1>Arquitecto de Simuladores BioFísicos</h1>
+      <h2>Simulador de Flujo Vascular Fisiológico</h2>
+      <p>Este simulador explora cómo la presión arterial y las resistencias de diferentes lechos vasculares determinan
+        la distribución del **gasto cardíaco** (flujo total).</p>
+    </header>
+
+    <aside class="panel">
+      <form id="controlsForm" onsubmit="return false;">
+        <fieldset>
+          <legend>Parámetros Globales</legend>
+          <div class="control-group">
+            <label for="deltaP">Presión de Perfusión (ΔP)</label>
+            <input type="range" id="deltaP" min="50" max="150" value="100" step="1">
+            <span class="value-display" id="deltaPValue">100 mmHg</span>
+          </div>
+          <div class="control-group">
+            <label for="rArteria">Resistencia Arterial (R<sub>A</sub>)</label>
+            <input type="range" id="rArteria" min="0.05" max="2" value="0.1" step="0.05">
+            <span class="value-display" id="rArteriaValue">0.10 URP</span>
+          </div>
+          <div class="control-group">
+            <label for="rVena">Resistencia Venosa (R<sub>V</sub>)</label>
+            <input type="range" id="rVena" min="0.05" max="2" value="0.1" step="0.05">
+            <span class="value-display" id="rVenaValue">0.10 URP</span>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Resistencias Orgánicas (Paralelo)</legend>
+          <div class="control-group">
+            <label for="rCerebro">🧠 Resistencia Cerebral (R<sub>C</sub>)</label>
+            <input type="range" id="rCerebro" min="1" max="15" value="6.0" step="0.1">
+            <span class="value-display" id="rCerebroValue">6.0 URP</span>
+          </div>
+          <div class="control-group">
+            <label for="rRinon">երի Resistencia Renal (R<sub>R</sub>)</label>
+            <input type="range" id="rRinon" min="1" max="15" value="3.0" step="0.1">
+            <span class="value-display" id="rRinonValue">3.0 URP</span>
+          </div>
+          <div class="control-group">
+            <label for="rMusculo">💪 Resistencia Muscular (R<sub>M</sub>)</label>
+            <input type="range" id="rMusculo" min="1" max="25" value="3.0" step="0.1">
+            <span class="value-display" id="rMusculoValue">3.0 URP</span>
+          </div>
+          <div class="control-group">
+            <label for="rPiel">🤚 Resistencia Cutánea (R<sub>P</sub>)</label>
+            <input type="range" id="rPiel" min="1" max="30" value="10.0" step="0.1">
+            <span class="value-display" id="rPielValue">10.0 URP</span>
+          </div>
+        </fieldset>
+        <button id="resetButton" type="button">Restablecer a Reposo Fisiológico (≈5 L/min)</button>
+      </form>
+    </aside>
+
+    <main class="panel">
+      <h2>Resultados y Visualización</h2>
+      <div class="results-grid" aria-live="polite">
+        <div class="result-card" style="background-color: #e0f2fe;">
+          <div class="label">Flujo Total (Q<sub>T</sub>)</div>
+          <div class="value"><span id="qTotalValue">0</span> <span class="unit">L/min</span></div>
+        </div>
+        <div class="result-card">
+          <div class="label">Q<sub>Cerebro</sub></div>
+          <div class="value"><span id="qCerebroValue">0</span> <span class="unit">L/min</span></div>
+        </div>
+        <div class="result-card">
+          <div class="label">Q<sub>Riñón</sub></div>
+          <div class="value"><span id="qRinonValue">0</span> <span class="unit">L/min</span></div>
+        </div>
+        <div class="result-card">
+          <div class="label">Q<sub>Músculo</sub></div>
+          <div class="value"><span id="qMusculoValue">0</span> <span class="unit">L/min</span></div>
+        </div>
+        <div class="result-card">
+          <div class="label">Q<sub>Piel</sub></div>
+          <div class="value"><span id="qPielValue">0</span> <span class="unit">L/min</span></div>
+        </div>
+      </div>
+      <canvas id="simulationCanvas"></canvas>
+      <details>
+        <summary>Explicación del Modelo</summary>
+        <div class="explanation-content">
+          <h3>Fundamento Técnico</h3>
+          <p>El modelo aplica la Ley de Ohm para hemodinámica: $ \Delta P = Q \cdot R $. Las unidades de resistencia
+            (URP) se definen como mmHg / (mL/s). Para la visualización, los flujos se convierten a Litros/minuto.</p>
+        </div>
+      </details>
+      <footer>
+        <p><strong>Referencias:</strong> Guyton & Hall, "Tratado de Fisiología Médica"; Houssay, "Fisiología Humana".
+        </p>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+      const physiologicalDefaults = {
+        deltaP: 100, rArteria: 0.1, rVena: 0.1,
+        rCerebro: 6.0, rRinon: 3.0, rMusculo: 3.0, rPiel: 10.0,
+      };
+
+      const ML_PER_S_TO_L_PER_MIN = 0.06;
+
+      const model = { ...physiologicalDefaults };
+      Object.assign(model, {
+        rParalelo: 0, rTotal: 0, qTotal: 0, deltaPParalelo: 0,
+        qCerebro: 0, qRinon: 0, qMusculo: 0, qPiel: 0,
+        calculate() {
+          const inv_r_paralelo = (1 / this.rCerebro) + (1 / this.rRinon) + (1 / this.rMusculo) + (1 / this.rPiel);
+          this.rParalelo = 1 / inv_r_paralelo;
+          this.rTotal = this.rArteria + this.rParalelo + this.rVena;
+          this.qTotal = (this.rTotal > 0) ? this.deltaP / this.rTotal : Infinity;
+          this.deltaPParalelo = this.qTotal * this.rParalelo;
+          this.qCerebro = (this.rCerebro > 0) ? this.deltaPParalelo / this.rCerebro : Infinity;
+          this.qRinon = (this.rRinon > 0) ? this.deltaPParalelo / this.rRinon : Infinity;
+          this.qMusculo = (this.rMusculo > 0) ? this.deltaPParalelo / this.rMusculo : Infinity;
+          this.qPiel = (this.rPiel > 0) ? this.deltaPParalelo / this.rPiel : Infinity;
+        }
+      });
+
+      const view = {
+        controls: {
+          deltaP: document.getElementById('deltaP'), rArteria: document.getElementById('rArteria'),
+          rVena: document.getElementById('rVena'), rCerebro: document.getElementById('rCerebro'),
+          rRinon: document.getElementById('rRinon'), rMusculo: document.getElementById('rMusculo'),
+          rPiel: document.getElementById('rPiel'),
+        },
+        displays: {
+          deltaP: document.getElementById('deltaPValue'), rArteria: document.getElementById('rArteriaValue'),
+          rVena: document.getElementById('rVenaValue'), rCerebro: document.getElementById('rCerebroValue'),
+          rRinon: document.getElementById('rRinonValue'), rMusculo: document.getElementById('rMusculoValue'),
+          rPiel: document.getElementById('rPielValue'),
+        },
+        results: {
+          qTotal: document.getElementById('qTotalValue'), qCerebro: document.getElementById('qCerebroValue'),
+          qRinon: document.getElementById('qRinonValue'), qMusculo: document.getElementById('qMusculoValue'),
+          qPiel: document.getElementById('qPielValue'),
+        },
+        resetButton: document.getElementById('resetButton'),
+        canvas: document.getElementById('simulationCanvas'), ctx: null,
+
+        init() {
+          this.ctx = this.canvas.getContext('2d');
+          this.resizeCanvas();
+          window.addEventListener('resize', () => { this.resizeCanvas(); controller.updateSimulation(); });
+        },
+        resizeCanvas() {
+          const dpr = window.devicePixelRatio || 1; const rect = this.canvas.getBoundingClientRect();
+          this.canvas.width = rect.width * dpr; this.canvas.height = rect.height * dpr;
+          this.ctx.scale(dpr, dpr);
+        },
+        updateControlDisplays(model) {
+          this.displays.deltaP.textContent = `${model.deltaP.toFixed(0)} mmHg`;
+          this.displays.rArteria.textContent = `${model.rArteria.toFixed(2)} URP`;
+          this.displays.rVena.textContent = `${model.rVena.toFixed(2)} URP`;
+          this.displays.rCerebro.textContent = `${model.rCerebro.toFixed(1)} URP`;
+          this.displays.rRinon.textContent = `${model.rRinon.toFixed(1)} URP`;
+          this.displays.rMusculo.textContent = `${model.rMusculo.toFixed(1)} URP`;
+          this.displays.rPiel.textContent = `${model.rPiel.toFixed(1)} URP`;
+        },
+        updateSlidersFromModel(model) {
+          for (const key in this.controls) { if (model.hasOwnProperty(key)) { this.controls[key].value = model[key]; } }
+        },
+        updateResults(model) {
+          this.results.qTotal.textContent = (model.qTotal * ML_PER_S_TO_L_PER_MIN).toFixed(2);
+          this.results.qCerebro.textContent = (model.qCerebro * ML_PER_S_TO_L_PER_MIN).toFixed(2);
+          this.results.qRinon.textContent = (model.qRinon * ML_PER_S_TO_L_PER_MIN).toFixed(2);
+          this.results.qMusculo.textContent = (model.qMusculo * ML_PER_S_TO_L_PER_MIN).toFixed(2);
+          this.results.qPiel.textContent = (model.qPiel * ML_PER_S_TO_L_PER_MIN).toFixed(2);
+        },
+        drawDiagram(model) {
+          const ctx = this.ctx;
+          const width = this.canvas.clientWidth; const height = this.canvas.clientHeight;
+          ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+          ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-primario');
+          ctx.font = '12px ' + getComputedStyle(document.body).fontFamily;
+          const mapFlowToWidth = (q_ml_s) => Math.max(2, Math.min(60, (q_ml_s / 83.3) * 50 + 2)); // Normalizado a 5L/min
+          const mapResToOpacity = (r) => Math.min(1, 0.2 + r / 20);
+          const y_positions = [height * 0.2, height * 0.4, height * 0.6, height * 0.8];
+          const y_center = height / 2; const x_start = width * 0.1; const x_split = width * 0.35;
+          const x_rejoin = width * 0.65; const x_end = width * 0.9;
+          const organs = [
+            { y: y_positions[0], q: model.qCerebro, r: model.rCerebro, label: 'R\u209C', name: 'Cerebro' },
+            { y: y_positions[1], q: model.qRinon, r: model.rRinon, label: 'R\u1D63', name: 'Riñón' },
+            { y: y_positions[2], q: model.qMusculo, r: model.rMusculo, label: 'R\u2098', name: 'Músculo' },
+            { y: y_positions[3], q: model.qPiel, r: model.rPiel, label: 'R\u209A', name: 'Piel' },
+          ];
+          const drawPipe = (x1, y1, x2, y2, flow_ml_s) => {
+            ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+            ctx.lineWidth = mapFlowToWidth(flow_ml_s); ctx.stroke();
+          };
+          const drawResistor = (x, y, label, resistance) => {
+            ctx.fillStyle = `rgba(220, 53, 69, ${mapResToOpacity(resistance)})`; ctx.beginPath();
+            ctx.rect(x - 15, y - 10, 30, 20); ctx.fill(); ctx.fillStyle = '#fff';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, x, y);
+          };
+          drawPipe(x_start, y_center, x_split, y_center, model.qTotal);
+          drawResistor((x_start + x_split) / 2, y_center, 'R\u2090', model.rArteria);
+          ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-texto');
+          const qTotal_L_min = (model.qTotal * ML_PER_S_TO_L_PER_MIN).toFixed(2);
+          ctx.fillText(`Q\u209C = ${qTotal_L_min} L/min`, x_start + 20, y_center - 40);
+          drawPipe(x_rejoin, y_center, x_end, y_center, model.qTotal);
+          drawResistor((x_rejoin + x_end) / 2, y_center, 'R\u1d20', model.rVena);
+          drawPipe(x_split, y_positions[0], x_split, y_positions[3], model.qTotal);
+          drawPipe(x_rejoin, y_positions[0], x_rejoin, y_positions[3], model.qTotal);
+          organs.forEach(org => {
+            drawPipe(x_split, org.y, x_rejoin, org.y, org.q);
+            drawResistor((x_split + x_rejoin) / 2, org.y, org.label, org.r);
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-texto');
+            ctx.textAlign = 'right';
+            const q_L_min = (org.q * ML_PER_S_TO_L_PER_MIN).toFixed(2);
+            ctx.fillText(`${org.name}: ${q_L_min} L/min`, x_rejoin - 30, org.y - 18);
+          });
+        }
+      };
+
+      const controller = {
+        init() {
+          view.init(); this.addEventListeners(); this.loadInitialValues(); this.updateSimulation();
+        },
+        addEventListeners() {
+          for (const key in view.controls) { view.controls[key].addEventListener('input', this.handleInputChange.bind(this)); }
+          view.resetButton.addEventListener('click', this.handleResetClick.bind(this));
+        },
+        loadInitialValues() { for (const key in view.controls) { model[key] = parseFloat(view.controls[key].value); } },
+        handleInputChange(event) {
+          const { id, value } = event.target; model[id] = parseFloat(value); this.updateSimulation();
+        },
+        handleResetClick() {
+          Object.assign(model, physiologicalDefaults); view.updateSlidersFromModel(model); this.updateSimulation();
+        },
+        updateSimulation() {
+          model.calculate(); view.updateControlDisplays(model); view.updateResults(model); view.drawDiagram(model);
+        }
+      };
+      controller.init();
+    });
+  </script>
+</body>
+
+</html>

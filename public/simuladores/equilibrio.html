@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Equilibrio Humano — Péndulo Invertido (UX + límites fisiológicos)</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a33;
+      --ink: #e9eefb;
+      --muted: #9bb0d9;
+      --accent: #5eead4;
+      --warn: #fbbf24;
+      --ok: #86efac;
+      --danger: #fca5a5
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial
+    }
+
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #0b1020, #0e1630 35%, #0b1020);
+      color: var(--ink)
+    }
+
+    header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #1f2a4d
+    }
+
+    header h1 {
+      margin: 0 0 4px;
+      font-size: 20px
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px
+    }
+
+    .wrap {
+      display: grid;
+      gap: 16px;
+      padding: 16px;
+      grid-template-columns: 480px 1fr
+    }
+
+    @media (max-width:1100px) {
+      .wrap {
+        grid-template-columns: 1fr
+      }
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid #1f2a4d;
+      border-radius: 14px;
+      padding: 14px
+    }
+
+    .panel h2 {
+      margin: 0 0 8px;
+      font-size: 16px
+    }
+
+    .controls {
+      display: grid;
+      gap: 12px;
+      max-height: calc(100vh - 140px);
+      overflow: auto;
+      scrollbar-width: thin
+    }
+
+    fieldset {
+      border: 1px solid #28355f;
+      border-radius: 12px;
+      padding: 10px
+    }
+
+    legend {
+      color: var(--ink);
+      font-weight: 700;
+      font-size: 13px;
+      padding: 0 6px
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 210px 1fr 96px;
+      align-items: center;
+      gap: 10px;
+      margin: 6px 0
+    }
+
+    .row label {
+      font-size: 13px;
+      color: var(--muted)
+    }
+
+    .row input[type=range] {
+      width: 100%
+    }
+
+    .row output {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      font-size: 13px
+    }
+
+    .checks {
+      display: grid;
+      gap: 6px;
+      margin-top: 6px
+    }
+
+    .checks label {
+      font-size: 13px;
+      color: var(--muted)
+    }
+
+    .buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px
+    }
+
+    .btn {
+      background: #192449;
+      border: 1px solid #223062;
+      color: var(--ink);
+      padding: 8px 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px
+    }
+
+    .btn:hover {
+      filter: brightness(1.05)
+    }
+
+    .primary {
+      background: #1d364f;
+      border-color: #2a4b72
+    }
+
+    .good {
+      background: #11341f;
+      border-color: #1e5e33;
+      color: #c7f9cf
+    }
+
+    .warn {
+      background: #3b2c12;
+      border-color: #6b4a16;
+      color: #ffe6b0
+    }
+
+    .danger {
+      background: #4a1212;
+      border-color: #7a2020;
+      color: #ffdada
+    }
+
+    .preset-bar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap
+    }
+
+    .canvases {
+      display: grid;
+      gap: 16px;
+      grid-template-rows: 1fr 218px;
+      min-height: 560px
+    }
+
+    .board {
+      position: relative;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      background: radial-gradient(1200px 600px at 50% 0%, #101b38 0%, #0b1126 55%, #091023 100%);
+      border: 1px solid #1b2446;
+      overflow: hidden
+    }
+
+    .legend {
+      position: absolute;
+      top: 8px;
+      left: 10px;
+      font-size: 12px;
+      color: var(--muted)
+    }
+
+    .status {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      font-size: 12px;
+      color: var(--muted)
+    }
+
+    .fall {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(2px);
+      background: rgba(120, 0, 0, 0.55)
+    }
+
+    .fall-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 18px 22px;
+      border-radius: 16px;
+      background: rgba(20, 0, 0, 0.6);
+      border: 2px solid #7a2020;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5)
+    }
+
+    .fall .title {
+      font-size: 20px;
+      font-weight: 900;
+      color: #ffe1e1
+    }
+
+    .fall img {
+      max-width: 220px;
+      max-height: 180px;
+      object-fit: cover;
+      border-radius: 12px;
+      border: 2px solid #b64
+    }
+
+    .fall .hint {
+      font-size: 12px;
+      color: #ffd3d3
+    }
+
+    .ground {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 18px;
+      background: linear-gradient(180deg, #17203f, #0f162f);
+      border-top: 1px solid #1f2a4d
+    }
+
+    .chart {
+      height: 218px;
+      border: 1px solid #1b2446;
+      background: #0c1226;
+      border-radius: 14px;
+      overflow: hidden;
+      position: relative
+    }
+
+    .chart .axis {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 1px;
+      background: #223062;
+      opacity: .6
+    }
+
+    .chart .labels {
+      position: absolute;
+      inset: 8px 10px auto auto;
+      font-size: 11px;
+      color: var(--muted);
+      text-align: right
+    }
+
+    footer {
+      padding: 10px 16px 18px;
+      color: var(--muted);
+      font-size: 12px
+    }
+
+    .note {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px
+    }
+
+    .urlrow {
+      display: grid;
+      grid-template-columns: 1fr 120px;
+      gap: 8px;
+      margin-top: 6px
+    }
+
+    .urlrow input {
+      width: 100%;
+      padding: 8px;
+      border-radius: 10px;
+      border: 1px solid #2a3a70;
+      background: #0c1226;
+      color: var(--ink)
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Equilibrio humano — Péndulo invertido con límites fisiológicos</h1>
+    <p>Modelo: <strong>h</strong>=altura; <strong>ℓ<sub>ef</sub>=0,6·h</strong>; <em>I=m·ℓ<sub>ef</sub>²</em>;
+      <em>τ=clip(k<sub>p</sub>θ<sub>s</sub>+k<sub>d</sub>θ̇<sub>s</sub>, ±τ<sub>max</sub>)</em>. Caída si |θ| cruza
+      umbral con velocidad alta o hay saturación persistente.
+    </p>
+  </header>
+
+  <main class="wrap">
+    <aside class="panel">
+      <h2>Controles</h2>
+      <div class="controls">
+        <!-- PRESETS -->
+        <fieldset>
+          <legend>Presets</legend>
+          <div class="preset-bar">
+            <button class="btn good" id="presetStable">Estable</button>
+            <button class="btn" id="presetUnder">Sub-amortiguado</button>
+            <button class="btn warn" id="presetDelay">Retardo alto</button>
+            <button class="btn danger" id="presetSat">Saturación muscular</button>
+            <button class="btn" id="presetMoon">Gravedad lunar</button>
+            <button class="btn" id="presetKid">Niño</button>
+            <button class="btn" id="presetTall">Adulto alto</button>
+          </div>
+        </fieldset>
+
+        <!-- CONTROL -->
+        <fieldset>
+          <legend>Control (retroalimentación)</legend>
+          <div class="row">
+            <label for="kp">k<sub>p</sub> (ganancia proporcional)</label>
+            <input id="kp" type="range" min="0" max="2000" step="10" value="800">
+            <output id="kpOut">800 N·m/rad</output>
+          </div>
+          <div class="row">
+            <label for="kd">k<sub>d</sub> (ganancia derivativa)</label>
+            <input id="kd" type="range" min="0" max="800" step="5" value="400">
+            <output id="kdOut">400 N·m·s/rad</output>
+          </div>
+        </fieldset>
+
+        <!-- BIOMECÁNICA -->
+        <fieldset>
+          <legend>Biomecánica (cuerpo)</legend>
+          <div class="row">
+            <label for="mass">m (masa)</label>
+            <input id="mass" type="range" min="20" max="120" step="1" value="70">
+            <output id="massOut">70 kg</output>
+          </div>
+          <div class="row">
+            <label for="height">Altura (h)</label>
+            <input id="height" type="range" min="1.20" max="2.10" step="0.01" value="1.75">
+            <output id="heightOut">1.75 m</output>
+          </div>
+        </fieldset>
+
+        <!-- LÍMITES FISIOLÓGICOS -->
+        <fieldset>
+          <legend>Límites fisiológicos</legend>
+          <div class="row">
+            <label for="tau">τ<sub>max</sub> (límite muscular)</label>
+            <input id="tau" type="range" min="50" max="300" step="5" value="150">
+            <output id="tauOut">150 N·m</output>
+          </div>
+          <div class="row">
+            <label for="loss">Umbral de caída (|θ|)</label>
+            <input id="loss" type="range" min="6" max="20" step="1" value="12">
+            <output id="lossOut">12 °</output>
+          </div>
+          <div class="row">
+            <label for="fallVel">Velocidad crítica de caída</label>
+            <input id="fallVel" type="range" min="0.3" max="1.5" step="0.05" value="0.6">
+            <output id="fallVelOut">0.60 rad/s</output>
+          </div>
+        </fieldset>
+
+        <!-- SENSADO -->
+        <fieldset>
+          <legend>Sensado (percepción)</legend>
+          <div class="row">
+            <label for="delay">Retardo base</label>
+            <input id="delay" type="range" min="0" max="300" step="10" value="120">
+            <output id="delayOut">120 ms</output>
+          </div>
+          <div class="row">
+            <label for="noise">Ruido sensorial</label>
+            <input id="noise" type="range" min="0" max="0.08" step="0.002" value="0.01">
+            <output id="noiseOut">0.010 rad RMS</output>
+          </div>
+          <div class="checks">
+            <label><input id="dynDelay" type="checkbox" checked> Latencia adaptativa (+400 ms/rad)</label>
+          </div>
+        </fieldset>
+
+        <!-- AMBIENTE -->
+        <fieldset>
+          <legend>Ambiente</legend>
+          <div class="row">
+            <label for="grav">g (gravedad)</label>
+            <input id="grav" type="range" min="6" max="12" step="0.1" value="9.8">
+            <output id="gravOut">9.8 m/s²</output>
+          </div>
+        </fieldset>
+
+        <!-- EMPUJONES -->
+        <fieldset>
+          <legend>Perturbaciones</legend>
+          <div class="buttons">
+            <button class="btn" id="btnKickSoft">Empujón amistoso</button>
+            <button class="btn warn" id="btnKick">Empujón normal</button>
+            <button class="btn danger" id="btnKickHard">Empujón violento</button>
+          </div>
+        </fieldset>
+
+        <!-- CONTROLES GENERALES -->
+        <fieldset>
+          <legend>Simulación</legend>
+          <div class="buttons">
+            <button class="btn primary" id="btnReset">Reiniciar</button>
+            <button class="btn" id="btnPause">Pausar</button>
+            <button class="btn good" id="btnNudge">Micro-ruido ON</button>
+            <button class="btn" id="btnStand">Levantar</button>
+          </div>
+          <div class="urlrow">
+            <input id="fallImgUrl" placeholder="URL imagen para caída (opcional)" />
+            <button class="btn danger" id="btnSetImg">Usar imagen</button>
+          </div>
+          <div class="note">
+            Tip: estimá <em>m·g·ℓ<sub>ef</sub></em> y poné <em>k<sub>p</sub></em> un poco mayor; luego <em>k<sub>d</sub>
+              ≈ 2√(I·k<sub>p</sub>)</em>. Caída si |θ| cruza el umbral con velocidad alta o si el par requerido supera
+            τ<sub>max</sub>.
+          </div>
+        </fieldset>
+      </div>
+    </aside>
+
+    <section class="canvases">
+      <div class="board panel">
+        <div class="legend">Pivote=tobillo · barra=cuerpo · ● cabeza · ● verde=CM (0,6·h)</div>
+        <div class="status" id="statusTxt"></div>
+
+        <!-- FALL OVERLAY -->
+        <div class="fall" id="fallOverlay">
+          <div class="fall-inner">
+            <div class="title">💥 ¡Caída! Límite fisiológico superado</div>
+            <img id="fallImg" alt="Imagen de caída" style="display:none" />
+            <div class="hint">Tocá “Levantar” o ajustá los parámetros para reintentar.</div>
+          </div>
+        </div>
+
+        <canvas id="sim" width="1200" height="620"></canvas>
+        <div class="ground"></div>
+      </div>
+
+      <div class="chart panel">
+        <div class="axis"></div>
+        <canvas id="plot" width="1400" height="218"></canvas>
+        <div class="labels">
+          <div>θ(t) [rad] · línea continua</div>
+          <div>± 8° ≈ ±0.14 rad · zona media</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    UX: aside amplio, fieldsets con legend, presets, empujones con tres intensidades y overlay de caída personalizable.
+  </footer>
+
+  <script>
+    (() => {
+      // ------ Parámetros y estado ------
+      const ALPHA = 0.6; // ℓef = 0.6·h
+      let params = {
+        kp: 800, kd: 400, m: 70, h: 1.75, g: 9.8,
+        tauMax: 150, lossDeg: 12, fallVel: 0.6,
+        delayMs: 120, sensorNoise: 0.01, dynDelay: true,
+        microNoiseOn: true
+      };
+      let theta = 0.02, thetaDot = 0, t = 0, running = true, fallen = false;
+      const delayBuffer = []; let bufferSpan = params.delayMs / 1000;
+      let lastFrame = performance.now();
+
+      // ------ DOM ------
+      const $ = id => document.getElementById(id);
+      const sim = $("sim"), plot = $("plot");
+      const ctx = sim.getContext("2d"), ptx = plot.getContext("2d");
+      const fallOverlay = $("fallOverlay"), fallImg = $("fallImg"), statusTxt = $("statusTxt");
+
+      // ------ Binds ------
+      const bind = (id, fmt) => {
+        const inp = $(id), out = $(id + "Out");
+        const update = () => { out.textContent = fmt(parseFloat(inp.value)); onChange(); };
+        inp.addEventListener("input", update); update();
+      };
+      function onChange() {
+        params.kp = +$("kp").value; params.kd = +$("kd").value;
+        params.m = +$("mass").value; params.h = +$("height").value;
+        params.g = +$("grav").value; params.tauMax = +$("tau").value;
+        params.lossDeg = +$("loss").value; params.fallVel = +$("fallVel").value;
+        params.delayMs = +$("delay").value; params.sensorNoise = +$("noise").value;
+        params.dynDelay = $("dynDelay").checked;
+        bufferSpan = params.delayMs / 1000;
+      }
+      bind("kp", v => `${v.toFixed(0)} N·m/rad`);
+      bind("kd", v => `${v.toFixed(0)} N·m·s/rad`);
+      bind("mass", v => `${v.toFixed(0)} kg`);
+      bind("height", v => `${v.toFixed(2)} m`);
+      bind("grav", v => `${v.toFixed(1)} m/s²`);
+      bind("tau", v => `${v.toFixed(0)} N·m`);
+      bind("loss", v => `${v.toFixed(0)} °`);
+      bind("fallVel", v => `${v.toFixed(2)} rad/s`);
+      bind("delay", v => `${v.toFixed(0)} ms`);
+      bind("noise", v => `${v.toFixed(3)} rad RMS`);
+
+      // ------ Botones generales ------
+      $("btnPause").onclick = () => { running = !running; $("btnPause").textContent = running ? "Pausar" : "Continuar"; };
+      $("btnReset").onclick = () => { resetState(); };
+      $("btnStand").onclick = () => { standUp(); };
+      $("btnNudge").onclick = () => { params.microNoiseOn = !params.microNoiseOn; $("btnNudge").textContent = params.microNoiseOn ? "Micro-ruido ON" : "Micro-ruido OFF"; };
+
+      // --- Empujones calibrados con criterio energético ---
+      // helper: devuelve radianes del umbral de caída actual
+      function lossRad() {
+        return params.lossDeg * Math.PI / 180;
+      }
+      // helper: longitud efectiva
+      function lEff() {
+        return 0.6 * params.h;
+      }
+
+      $("btnKickSoft").onclick = () => {
+        // Amistoso: leve, nunca cae
+        const impulso = 0.15; // rad/s fijo
+        thetaDot += (Math.random() > 0.5 ? 1 : -1) * impulso;
+      };
+      /*
+            $("btnKick").onclick = () => {
+              // Normal: desestabiliza y recupera si h <= 1.90 m; si h > 1.90 m puede caer
+              const alpha = 0.60;                 // margen de seguridad (60% de la barrera)
+              const wSafe = Math.sqrt(alpha * params.g * lossRad() ** 2 / lEff());
+              const factor = (params.h > 1.90) ? 1.15 : 0.85; // alto: empujón más allá del borde
+              const impulso = factor * wSafe;
+      
+              // Aplicar en dirección aleatoria
+              thetaDot += (Math.random() > 0.5 ? 1 : -1) * impulso;
+            };
+      */
+      $("btnKick").onclick = () => {
+        // Normal: desestabiliza pero no derriba salvo cuerpos muy altos
+        let impulso = 0.35;
+        if (params.h > 1.9) impulso = 0.45; // más palanca → mayor riesgo
+        thetaDot += (Math.random() > 0.5 ? 1 : -1) * impulso;
+      };
+
+      $("btnKickHard").onclick = () => {
+        // Violento: garantiza caída
+        // Tomamos 1.8 * wSafe (en promedio) + pausa breve del control
+        const alpha = 0.60;
+        const wSafe = Math.sqrt(alpha * params.g * lossRad() ** 2 / lEff());
+        const impulso = 1.0 * wSafe + Math.random() * 0.3; // rad/s
+        thetaDot += (Math.random() > 0.5 ? 1 : -1) * impulso;
+
+        // Simular "aturdimiento": pausa breve del control
+        const delayInest = 300 + Math.random() * 200; // 300–500 ms
+        const oldRunning = running;
+        running = false;
+        setTimeout(() => { running = oldRunning || true; }, delayInest);
+      };
+      // Imagen de caída personalizada
+      $("btnSetImg").onclick = () => {
+        const url = $("fallImgUrl").value.trim();
+        if (url) {
+          fallImg.src = url;
+          fallImg.style.display = "block";
+        } else {
+          fallImg.removeAttribute("src");
+          fallImg.style.display = "none";
+        }
+      };
+
+      // Presets
+      $("presetStable").onclick = () => applyPreset("stable");
+      $("presetUnder").onclick = () => applyPreset("under");
+      $("presetDelay").onclick = () => applyPreset("delay");
+      $("presetSat").onclick = () => applyPreset("sat");
+      $("presetMoon").onclick = () => applyPreset("moon");
+      $("presetKid").onclick = () => applyPreset("kid");
+      $("presetTall").onclick = () => applyPreset("tall");
+
+      function applyPreset(name) {
+        const set = (id, val) => { $(id).value = val; $(id).dispatchEvent(new Event("input")); };
+        switch (name) {
+          case "stable": // micro-oscilaciones normales
+            set("kp", 900); set("kd", 420);
+            set("mass", 70); set("height", 1.75);
+            set("grav", 9.8); set("tau", 160);
+            set("loss", 12); set("fallVel", 0.6);
+            set("delay", 120); set("noise", 0.01);
+            $("dynDelay").checked = true; onChange();
+            standUp(); break;
+
+          case "under": // sub-amortiguado (serrucho)
+            set("kp", 800); set("kd", 120);
+            set("delay", 100); set("noise", 0.008);
+            $("dynDelay").checked = false; onChange();
+            standUp(); break;
+
+          case "delay": // retardo alto (inestabilidad por latencia)
+            set("kp", 850); set("kd", 300);
+            set("delay", 300); $("dynDelay").checked = true;
+            set("noise", 0.012); onChange();
+            standUp(); break;
+
+          case "sat": // saturación muscular (torque insuficiente)
+            set("kp", 900); set("kd", 420);
+            set("tau", 90); set("loss", 10);
+            set("fallVel", 0.55); onChange();
+            standUp(); break;
+
+          case "moon": // gravedad lunar (fácil de estabilizar)
+            set("grav", 6.0); set("kp", 600); set("kd", 260);
+            set("delay", 120); $("dynDelay").checked = true; onChange();
+            standUp(); break;
+
+          case "kid": // niño pequeño
+            set("height", 1.30); set("mass", 35);
+            set("kp", 550); set("kd", 220); set("tau", 110);
+            set("delay", 110); set("grav", 9.8); onChange();
+            standUp(); break;
+
+          case "tall": // adulto alto
+            set("height", 2.00); set("mass", 95);
+            set("kp", 1200); set("kd", 520); set("tau", 170);
+            set("delay", 140); onChange();
+            standUp(); break;
+        }
+      }
+
+      // ------ Física ------
+      const effL = () => 0.6 * params.h;
+      const inertia = () => params.m * effL() * effL();
+
+      function senseDelayed(th, thd) {
+        const dyn = params.dynDelay ? (params.delayMs + 400 * Math.abs(th)) : params.delayMs;
+        bufferSpan = dyn / 1000;
+        delayBuffer.push({ time: t, theta: th, dot: thd });
+        const target = t - bufferSpan;
+        while (delayBuffer.length >= 2 && delayBuffer[1].time <= target) delayBuffer.shift();
+        if (delayBuffer.length >= 2) {
+          const a = delayBuffer[0], b = delayBuffer[1];
+          const u = (target - a.time) / ((b.time - a.time) || 1e-9);
+          return { theta: a.theta + u * (b.theta - a.theta), dot: a.dot + u * (b.dot - a.dot) };
+        }
+        return { theta: th, dot: thd };
+      }
+
+      // ------ Plot ------
+      const trace = []; const plotH = plot.height, plotW = plot.width;
+      function pushTrace(v) { trace.push(v); if (trace.length > plotW) trace.shift(); }
+      function drawPlot() {
+        ptx.clearRect(0, 0, plotW, plotH);
+        const mid = plotH / 2, band = (0.14 / 0.6) * (plotH / 2);
+        ptx.fillStyle = "rgba(94,234,212,.06)"; ptx.fillRect(0, mid - band, plotW, band * 2);
+        ptx.strokeStyle = "#2a3a70"; ptx.beginPath(); ptx.moveTo(0, mid); ptx.lineTo(plotW, mid); ptx.stroke();
+        const scale = (plotH / 2) / 0.6;
+        ptx.strokeStyle = "#e9eefb"; ptx.lineWidth = 1.6; ptx.beginPath();
+        for (let x = 0; x < trace.length; x++) { const y = mid - trace[x] * scale; x ? ptx.lineTo(x, y) : ptx.moveTo(0, y); }
+        ptx.stroke();
+      }
+
+      // ------ Dibujo ------
+      function drawScene() {
+        const W = sim.width, H = sim.height;
+        ctx.clearRect(0, 0, W, H);
+        const baseX = W / 2, baseY = H - 20, angle = -theta;
+        const Lvis = params.h * 380, Lcm = 0.6 * Lvis, headR = Math.max(10, 0.12 * 380 * 0.09);
+
+        const xTop = baseX + Lvis * Math.sin(angle), yTop = baseY - Lvis * Math.cos(angle);
+        const xCM = baseX + Lcm * Math.sin(angle), yCM = baseY - Lcm * Math.cos(angle);
+
+        // halo
+        ctx.strokeStyle = "rgba(94,234,212,.25)"; ctx.lineWidth = 10;
+        ctx.beginPath(); ctx.moveTo(baseX, baseY); ctx.lineTo(xTop, yTop); ctx.stroke();
+
+        // barra
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(baseX, baseY); ctx.lineTo(xTop, yTop); ctx.stroke();
+
+        // cabeza
+        ctx.fillStyle = "#dbeafe"; ctx.beginPath(); ctx.arc(xTop, yTop, headR, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#93c5fd"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(xTop, yTop, headR, 0, Math.PI * 2); ctx.stroke();
+
+        // pivote y CM
+        ctx.fillStyle = "#5eead4"; ctx.beginPath(); ctx.arc(baseX, baseY, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#86efac"; ctx.beginPath(); ctx.arc(xCM, yCM, 5, 0, Math.PI * 2); ctx.fill();
+
+        // torque (tras saturación)
+        const sensed = senseDelayed(theta, thetaDot);
+        let tauCmd = params.kp * sensed.theta + params.kd * sensed.dot;
+        const tau = Math.max(-params.tauMax, Math.min(params.tauMax, tauCmd));
+        const sgn = Math.sign(tau) || 1, len = 40 + Math.min(110, Math.abs(tau) * 0.6);
+        ctx.strokeStyle = tau >= 0 ? "#fbbf24" : "#60a5fa"; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(baseX, baseY); ctx.lineTo(baseX + sgn * len, baseY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(baseX + sgn * len, baseY);
+        ctx.lineTo(baseX + sgn * (len - 10), baseY - 6); ctx.lineTo(baseX + sgn * (len - 10), baseY + 6);
+        ctx.closePath(); ctx.fillStyle = tau >= 0 ? "#fbbf24" : "#60a5fa"; ctx.fill();
+
+        // textos
+        ctx.fillStyle = "#9bb0d9"; ctx.font = "12px system-ui";
+        ctx.fillText(`h=${params.h.toFixed(2)} m · ℓef=${(0.6 * params.h).toFixed(2)} m`, 12, 18);
+        ctx.fillText(`θ=${theta.toFixed(3)} rad (${(theta * 180 / Math.PI).toFixed(1)}°)`, 12, 34);
+
+        // estado/overlay
+        statusTxt.textContent = fallen ? "Estado: CAÍDA" : "Estado: en control";
+        fallOverlay.style.display = fallen ? "flex" : "none";
+      }
+
+      // ------ Dinámica & caída ------
+      function step(dt) {
+        if (fallen) return;
+        const dtC = Math.min(dt, 0.02);
+        const sensed = senseDelayed(theta, thetaDot);
+
+        // Ruido sensorial
+        const n = params.sensorNoise * (params.microNoiseOn ? (Math.random() * 2 - 1) : 0);
+        const thetaS = sensed.theta + n, thetaD = sensed.dot + n * 3;
+
+        const I = params.m * (0.6 * params.h) ** 2;
+        const grav = params.m * params.g * (0.6 * params.h) * theta;
+
+        // control con saturación
+        let tauCmd = params.kp * thetaS + params.kd * thetaD;
+        const tau = Math.max(-params.tauMax, Math.min(params.tauMax, tauCmd));
+
+        const thetaDDot = (grav - tau) / I;
+        thetaDot += thetaDDot * dtC;
+        theta += thetaDot * dtC;
+        t += dtC;
+
+        pushTrace(theta);
+
+        // reglas de caída
+        const lossRad = params.lossDeg * Math.PI / 180;
+        const nearLoss = 0.7 * lossRad;
+
+        // 1) umbral angular + velocidad alta
+        if (Math.abs(theta) > lossRad && Math.abs(thetaDot) > params.fallVel) fallen = true;
+
+        // 2) saturación persistente alejándose del cero
+        const movingAway = (theta * thetaDot) > 0 && Math.abs(theta) > nearLoss;
+        if (movingAway && Math.abs(tau) >= params.tauMax) fallen = true;
+
+        // 3) límite extremo
+        if (Math.abs(theta) > 0.6) fallen = true;
+      }
+
+      // ------ Loop ------
+      function loop(now) {
+        const dt = (now - lastFrame) / 1000; lastFrame = now;
+        if (running) step(dt);
+        drawScene(); drawPlot();
+        requestAnimationFrame(loop);
+      }
+      requestAnimationFrame(loop);
+
+      // Helpers
+      function resetState() { theta = 0.02; thetaDot = 0; t = 0; delayBuffer.length = 0; fallen = false; }
+      function standUp() { theta = 0.02; thetaDot = 0; fallen = false; }
+    })();
+  </script>
+</body>
+
+</html>

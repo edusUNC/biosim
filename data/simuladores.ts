@@ -161,7 +161,26 @@ export const simuladores: Simulador[] = [
       "Conocimiento del sistema de referencia hexaxial."
     ],
     tiempoEstimado: '15-25 minutos'
-  }
+  },
+  {
+  id: "simulador-via-optica",
+  nombre: "Simulador de Lesiones en la Vía Óptica",
+  descripcion: "Simulador didáctico que muestra los defectos del campo visual resultantes de lesiones en puntos clave de la vía óptica, desde el nervio óptico hasta la corteza visual.",
+  categoria: "Neurofisiología",
+  objetivo: "Identificar y correlacionar la ubicación de una lesión neuroanatómica con el patrón de pérdida del campo visual resultante (hemianopsia, cuadrantanopsia).",
+  archivo: "simulador-via-optica.html",
+  instrucciones: [
+    "Selecciona un número de lesión usando los controles del panel izquierdo o haciendo clic directamente en los puntos numerados del diagrama.",
+    "Observa el patrón de pérdida de campo visual (zonas oscuras) que aparece en los círculos de la derecha.",
+    "Lee el nombre y la descripción del defecto del campo visual que se muestra debajo de los círculos.",
+    "Utiliza el botón 'Restablecer a Visión Normal' para limpiar la selección y volver al estado fisiológico de referencia."
+  ],
+  requisitos: [
+    "Conocimiento básico de la anatomía del sistema nervioso central.",
+    "Comprensión del concepto de campo visual y proyección retiniana."
+  ],
+  tiempoEstimado: "5–10 minutos"
+}
 ];
 
 export const categorias = Array.from(new Set(simuladores.map(s => s.categoria)));
