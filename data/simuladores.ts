@@ -163,24 +163,157 @@ export const simuladores: Simulador[] = [
     tiempoEstimado: '15-25 minutos'
   },
   {
-  id: "simulador-via-optica",
-  nombre: "Simulador de Lesiones en la Vía Óptica",
-  descripcion: "Simulador didáctico que muestra los defectos del campo visual resultantes de lesiones en puntos clave de la vía óptica, desde el nervio óptico hasta la corteza visual.",
-  categoria: "Neurofisiología",
-  objetivo: "Identificar y correlacionar la ubicación de una lesión neuroanatómica con el patrón de pérdida del campo visual resultante (hemianopsia, cuadrantanopsia).",
-  archivo: "simulador-via-optica.html",
-  instrucciones: [
-    "Selecciona un número de lesión usando los controles del panel izquierdo o haciendo clic directamente en los puntos numerados del diagrama.",
-    "Observa el patrón de pérdida de campo visual (zonas oscuras) que aparece en los círculos de la derecha.",
-    "Lee el nombre y la descripción del defecto del campo visual que se muestra debajo de los círculos.",
-    "Utiliza el botón 'Restablecer a Visión Normal' para limpiar la selección y volver al estado fisiológico de referencia."
-  ],
-  requisitos: [
-    "Conocimiento básico de la anatomía del sistema nervioso central.",
-    "Comprensión del concepto de campo visual y proyección retiniana."
-  ],
-  tiempoEstimado: "5–10 minutos"
-}
+    id: "simulador-via-optica",
+    nombre: "Simulador de Lesiones en la Vía Óptica",
+    descripcion: "Simulador didáctico que muestra los defectos del campo visual resultantes de lesiones en puntos clave de la vía óptica, desde el nervio óptico hasta la corteza visual.",
+    categoria: "Neurofisiología",
+    objetivo: "Identificar y correlacionar la ubicación de una lesión neuroanatómica con el patrón de pérdida del campo visual resultante (hemianopsia, cuadrantanopsia).",
+    archivo: "simulador-via-optica.html",
+    instrucciones: [
+      "Selecciona un número de lesión usando los controles del panel izquierdo o haciendo clic directamente en los puntos numerados del diagrama.",
+      "Observa el patrón de pérdida de campo visual (zonas oscuras) que aparece en los círculos de la derecha.",
+      "Lee el nombre y la descripción del defecto del campo visual que se muestra debajo de los círculos.",
+      "Utiliza el botón 'Restablecer a Visión Normal' para limpiar la selección y volver al estado fisiológico de referencia."
+    ],
+    requisitos: [
+      "Conocimiento básico de la anatomía del sistema nervioso central.",
+      "Comprensión del concepto de campo visual y proyección retiniana."
+    ],
+    tiempoEstimado: "5–10 minutos"
+  },
+  {
+    id: 'dipolo4',
+    nombre: 'Dinámica del Dipolo y el Electrodo',
+    descripcion: 'Animación de una onda de despolarización atravesando tejido cardíaco, con galvanómetro y trazado ECG en tiempo real según la posición del electrodo explorador.',
+    categoria: 'Cardiología',
+    objetivo: 'Comprender cómo el ángulo entre el vector de despolarización y el electrodo determina si la deflexión es positiva, negativa o isodifásica.',
+    archivo: 'dipolo4.html',
+    instrucciones: [
+      "Observa el tejido cardíaco mientras la onda de despolarización avanza y genera el trazado ECG.",
+      "Mueve el deslizador de posición del electrodo y compara la lectura del galvanómetro con la forma de la onda.",
+      "Usa los presets 'Máximo Positivo', 'Isodifásico' y 'Máximo Negativo' para fijar posiciones clave.",
+      "Lee la explicación en vivo para relacionar el ángulo del electrodo con el signo de la deflexión."
+    ],
+    requisitos: [
+      'Concepto básico de dipolo eléctrico',
+      'Nociones de electrocardiografía'
+    ],
+    tiempoEstimado: '10-15 minutos'
+  },
+  {
+    id: 'simulador-ecg',
+    nombre: 'Simulador ECG — Teoría del dipolo',
+    descripcion: 'Simulador de electrocardiografía básica con 12 derivaciones. Un vector de despolarización rota en el corazón y cada derivación lo proyecta desde un ángulo distinto en los planos frontal y horizontal.',
+    categoria: 'Cardiología',
+    objetivo: 'Relacionar el ángulo del vector cardíaco con la polaridad y amplitud de las ondas en las derivaciones de miembros y precordiales.',
+    archivo: 'simulador-ecg.html',
+    instrucciones: [
+      "En modo automático, reproduce el ciclo cardíaco y ajusta la frecuencia con el deslizador.",
+      "Selecciona una derivación para inspeccionarla en el trazado principal y en la grilla de 12 derivaciones.",
+      "Cambia a modo vector manual y arrastra la punta del vector en el plano frontal y en el horizontal.",
+      "Compara cómo se acercan o alejan las derivaciones del vector y si la onda resulta positiva o negativa."
+    ],
+    requisitos: [
+      'Sistema de referencia hexaxial',
+      'Derivaciones de miembros y precordiales'
+    ],
+    tiempoEstimado: '15-25 minutos'
+  },
+  {
+    id: 'simulador-pv-ecg',
+    nombre: 'Simulador ECG — Bucle presión-volumen',
+    descripcion: 'El mismo ciclo cardíaco visto de dos formas: la señal eléctrica (ECG) y el trabajo mecánico del ventrículo izquierdo (bucle P-V), con controles de precarga, poscarga, contractilidad y rigidez.',
+    categoria: 'Cardiología',
+    objetivo: 'Correlacionar cambios hemodinámicos (precarga, poscarga, contractilidad) con la deformación del bucle P-V, la fracción de eyección y el ECG.',
+    archivo: 'simulador-pv-ecg2.html',
+    instrucciones: [
+      "Reproduce o pausa el ciclo y observa el ECG junto al bucle presión-volumen.",
+      "Ajusta precarga (volumen diastólico final), contractilidad (Emax), poscarga y rigidez diastólica.",
+      "Cambia la frecuencia cardíaca y observa el gasto cardíaco y la fracción de eyección.",
+      "Relaciona cada cambio de parámetro con la forma del bucle y las estadísticas del panel."
+    ],
+    requisitos: [
+      'Ciclo cardíaco y bucle presión-volumen',
+      'Conceptos de precarga, poscarga y contractilidad'
+    ],
+    tiempoEstimado: '15-25 minutos'
+  },
+  {
+    id: 'frank-starling',
+    nombre: 'Mecanismo de Frank-Starling',
+    descripcion: 'Demostración visual de cómo el estiramiento del corazón determina su fuerza de contracción, desde el solapamiento de actina-miosina hasta el volumen sistólico y el gasto cardíaco.',
+    categoria: 'Cardiología',
+    objetivo: 'Entender la ley de Frank-Starling: a mayor precarga (llenado ventricular), mayor fuerza contráctil y mayor volumen sistólico, dentro de un rango fisiológico.',
+    archivo: 'frank-starling.html',
+    instrucciones: [
+      "Mueve el deslizador de precarga / llenado ventricular.",
+      "Observa cómo cambian la fuerza contráctil, el volumen sistólico y el gasto cardíaco.",
+      "Compara la animación del corazón (nivel macroscópico) con el diagrama del sarcómero (nivel microscópico).",
+      "Revisa el gráfico de rendimiento y la explicación de la ley de Frank-Starling."
+    ],
+    requisitos: [
+      'Fisiología cardíaca básica',
+      'Concepto de precarga y volumen sistólico'
+    ],
+    tiempoEstimado: '10-15 minutos'
+  },
+  {
+    id: 'no-linear',
+    nombre: 'Fisiología cardíaca no lineal',
+    descripcion: 'Simulador que combina la curva de gasto cardíaco frente a frecuencia cardíaca con el bucle presión-volumen, mostrando por qué “más rápido” no siempre implica mejor rendimiento.',
+    categoria: 'Cardiología',
+    objetivo: 'Comprender la relación no lineal entre frecuencia cardíaca, volumen sistólico y gasto cardíaco, y cómo el acortamiento de la diástole reduce el llenado y el trabajo por latido.',
+    archivo: 'no-linear.html',
+    instrucciones: [
+      "Ajusta la edad y la frecuencia cardíaca con los deslizadores.",
+      "Observa el gráfico de gasto cardíaco: sube hasta un óptimo y luego cae.",
+      "Mira el bucle P-V a la derecha: al subir la FC se estrecha (menor volumen sistólico y trabajo por latido).",
+      "Compara los valores de gasto cardíaco, trabajo por latido y trabajo por minuto."
+    ],
+    requisitos: [
+      'Gasto cardíaco = FC × volumen sistólico',
+      'Nociones de bucle presión-volumen'
+    ],
+    tiempoEstimado: '10-20 minutos'
+  },
+  {
+    id: 'resistencia',
+    nombre: 'Flujo vascular fisiológico',
+    descripcion: 'Explora cómo la presión de perfusión y las resistencias de distintos lechos vasculares (en serie y en paralelo) determinan la distribución del gasto cardíaco.',
+    categoria: 'Cardiología',
+    objetivo: 'Aplicar la relación flujo = ΔP / R y entender el efecto de resistencias en paralelo sobre la resistencia total y el flujo a cada órgano.',
+    archivo: 'resistencia.html',
+    instrucciones: [
+      "Ajusta la presión de perfusión y las resistencias arterial y venosa globales.",
+      "Modifica las resistencias orgánicas en paralelo (cerebro, riñón, etc.).",
+      "Observa cómo cambia el flujo total y la distribución entre lechos.",
+      "Relaciona un aumento local de resistencia con la caída del flujo a ese órgano."
+    ],
+    requisitos: [
+      'Ley de Ohm aplicada a hemodinamia',
+      'Resistencias en serie y en paralelo'
+    ],
+    tiempoEstimado: '10-15 minutos'
+  },
+  {
+    id: 'equilibrio',
+    nombre: 'Equilibrio humano — Péndulo invertido',
+    descripcion: 'Modelo biomecánico de postura erguida como péndulo invertido con límites fisiológicos: control PD, retardo, saturación muscular y umbrales de caída.',
+    categoria: 'Fisiología',
+    objetivo: 'Explorar cómo la ganancia del control, el retardo sensorial y la saturación del torque muscular afectan la estabilidad postural y el riesgo de caída.',
+    archivo: 'equilibrio.html',
+    instrucciones: [
+      "Prueba los presets (estable, sub-amortiguado, retardo alto, saturación muscular, gravedad lunar, niño, adulto alto).",
+      "Ajusta altura, masa, ganancias del controlador y límites de torque.",
+      "Observa el ángulo, la velocidad y si el modelo cruza el umbral de caída.",
+      "Compara cómo el retardo o la saturación desestabilizan un sistema que antes era estable."
+    ],
+    requisitos: [
+      'Nociones de control y realimentación',
+      'Conceptos básicos de biomecánica postural'
+    ],
+    tiempoEstimado: '10-20 minutos'
+  }
 ];
 
 export const categorias = Array.from(new Set(simuladores.map(s => s.categoria)));
