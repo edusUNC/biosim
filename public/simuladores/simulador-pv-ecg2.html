@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador ECG · Bucle presión-volumen</title>
+<style>
+  :root{
+    --bezel:#0b0f0d; --panel:#101613; --panel-2:#0d1210; --line:#1e2b23;
+    --phosphor:#4dffa0; --phosphor-dim:#1f5c40;
+    --amber:#ffb454; --amber-dim:#7a5a28;
+    --cyan:#4dd2ff; --cyan-dim:#1f4e5c;
+    --red:#ff6b6b;
+    --ink:#dff5e8; --ink-dim:#7fa392;
+    --mono:'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace;
+    --sans:-apple-system,"Segoe UI",Inter,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:#000;}
+  body{
+    font-family:var(--sans); color:var(--ink);
+    background:radial-gradient(ellipse at 50% -10%, #16241c 0%, transparent 55%), var(--bezel);
+    min-height:100vh; padding:22px 16px 40px;
+  }
+  .rack{max-width:1180px;margin:0 auto;}
+  header.top{
+    display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px;
+    padding:4px 6px 18px;border-bottom:1px solid var(--line);margin-bottom:18px;
+  }
+  .brand-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);margin:0 0 6px;}
+  h1{margin:0;font-size:25px;font-weight:650;letter-spacing:-0.01em;}
+  .sub{margin:6px 0 0;color:var(--ink-dim);font-size:13.5px;max-width:56ch;line-height:1.5;}
+  .hr-readout{font-family:var(--mono);text-align:right;}
+  .hr-readout .num{font-size:42px;color:var(--phosphor);line-height:1;text-shadow:0 0 14px rgba(77,255,160,.55);}
+  .hr-readout .lbl{font-size:10.5px;letter-spacing:.14em;color:var(--ink-dim);text-transform:uppercase;}
+
+  .grid{display:grid;grid-template-columns:300px 1fr;gap:16px;}
+  @media (max-width:940px){.grid{grid-template-columns:1fr;}}
+
+  .panel{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:10px;padding:14px;}
+  .panel h2{margin:0 0 10px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);font-weight:600;}
+
+  .controls-row{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+  button.play{
+    background:var(--phosphor-dim);color:var(--phosphor);border:1px solid var(--phosphor);
+    border-radius:7px;width:38px;height:34px;font-size:14px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;flex:0 0 auto;
+  }
+  button.play:hover{filter:brightness(1.25);}
+
+  .slider-block{margin-bottom:12px;}
+  .slider-block label{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--ink-dim);margin-bottom:4px;}
+  .slider-block label b{color:var(--ink);font-weight:600;}
+  input[type=range]{-webkit-appearance:none;width:100%;height:4px;border-radius:2px;background:var(--line);outline:none;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--amber);border:2px solid #241a08;cursor:pointer;}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--amber);border:2px solid #241a08;cursor:pointer;}
+
+  .stats{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);
+    display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-family:var(--mono);font-size:12.5px;}
+  .stat .k{color:var(--ink-dim);font-size:10px;letter-spacing:.06em;text-transform:uppercase;}
+  .stat .v{color:var(--phosphor);font-size:16px;line-height:1.3;}
+  .stat.wide{grid-column:1/-1;}
+
+  .phase-box{margin-top:14px;padding:10px 11px;border-radius:7px;background:rgba(77,255,160,0.06);border:1px solid var(--phosphor-dim);}
+  .phase-box .name{font-family:var(--mono);font-size:13.5px;color:var(--phosphor);margin-bottom:5px;}
+  .phase-box .desc{font-size:12px;line-height:1.5;color:var(--ink);}
+  .valves{display:flex;gap:8px;margin-top:9px;}
+  .valve{font-family:var(--mono);font-size:10.5px;padding:3px 8px;border-radius:12px;border:1px solid var(--line);color:var(--ink-dim);}
+  .valve.open{border-color:var(--phosphor);color:var(--phosphor);background:rgba(77,255,160,.08);}
+  .valve.closed{border-color:#5a2c2c;color:var(--red);background:rgba(255,107,107,.06);}
+
+  canvas{display:block;width:100%;}
+  #pvCanvas{height:320px;border-radius:8px;background:#070a08;}
+  .pv-legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-family:var(--mono);font-size:10.5px;color:var(--ink-dim);}
+  .pv-legend span.sw{display:inline-block;width:14px;height:2px;margin-right:5px;vertical-align:middle;}
+
+  .strip-block{margin-top:14px;}
+  .strip-block .lbl{font-family:var(--mono);font-size:10.5px;color:var(--ink-dim);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px;}
+  .strip-canvas{height:84px;border-radius:6px;background:#070a08;}
+
+  footer.legend{margin-top:20px;color:var(--ink-dim);font-size:12px;line-height:1.7;padding:0 6px;}
+  footer.legend b{color:var(--ink);}
+  footer.legend .key{color:var(--phosphor);font-family:var(--mono);}
+</style>
+</head>
+<body>
+<div class="rack">
+
+  <header class="top">
+    <div>
+      <p class="brand-eyebrow">Ciclo cardíaco · elastancia variable en el tiempo</p>
+      <h1>ECG y bucle presión-volumen, en tiempo real</h1>
+      <p class="sub">El mismo ciclo cardíaco visto de dos formas: la señal eléctrica (ECG) y el trabajo mecánico del ventrículo izquierdo (bucle P-V). Cambiá precarga, poscarga, contractilidad y rigidez para ver cómo se deforma el bucle y qué pasa con la fracción de eyección.</p>
+    </div>
+    <div class="hr-readout">
+      <div class="num" id="hrNum">75</div>
+      <div class="lbl">lpm · frecuencia</div>
+    </div>
+  </header>
+
+  <div class="grid">
+
+    <!-- LEFT: controls + stats -->
+    <div class="panel">
+      <h2>Controles</h2>
+      <div class="controls-row">
+        <button class="play" id="playBtn">❚❚</button>
+        <div style="flex:1;font-family:var(--mono);font-size:11px;color:var(--ink-dim);">Reproducir / pausar ciclo</div>
+      </div>
+
+      <div class="slider-block">
+        <label><span>Precarga (volumen diastólico final)</span><b id="lblEDV">120 mL</b></label>
+        <input type="range" id="sEDV" min="60" max="220" value="120" step="1">
+      </div>
+      <div class="slider-block">
+        <label><span>Contractilidad (Emax)</span><b id="lblEmax">2.0 mmHg/mL</b></label>
+        <input type="range" id="sEmax" min="5" max="40" value="20" step="1">
+      </div>
+      <div class="slider-block">
+        <label><span>Poscarga / resistencia arterial</span><b id="lblEa">1.2 mmHg/mL</b></label>
+        <input type="range" id="sEa" min="5" max="30" value="12" step="1">
+      </div>
+      <div class="slider-block">
+        <label><span>Rigidez diastólica del VI</span><b id="lblStiff">3 / 10</b></label>
+        <input type="range" id="sStiff" min="1" max="10" value="3" step="1">
+      </div>
+      <div class="slider-block">
+        <label><span>Frecuencia cardíaca</span><b id="lblHR">75 lpm</b></label>
+        <input type="range" id="sHR" min="40" max="160" value="75" step="1">
+      </div>
+
+      <div class="stats">
+        <div class="stat"><div class="k">Vol. diastólico final</div><div class="v" id="statEDV">120 mL</div></div>
+        <div class="stat"><div class="k">Vol. sistólico final</div><div class="v" id="statESV">— mL</div></div>
+        <div class="stat"><div class="k">Volumen sistólico</div><div class="v" id="statSV">— mL</div></div>
+        <div class="stat"><div class="k">Fracción de eyección</div><div class="v" id="statEF">— %</div></div>
+        <div class="stat"><div class="k">Gasto cardíaco</div><div class="v" id="statCO">— L/min</div></div>
+        <div class="stat"><div class="k">Trabajo sistólico</div><div class="v" id="statSW">— mmHg·mL</div></div>
+      </div>
+
+      <div class="phase-box">
+        <div class="name" id="phaseName">—</div>
+        <div class="desc" id="phaseDesc">—</div>
+        <div class="valves">
+          <div class="valve" id="valveMitral">Mitral</div>
+          <div class="valve" id="valveAortic">Aórtica</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: PV loop + strips -->
+    <div class="panel">
+      <h2>Bucle presión-volumen del ventrículo izquierdo</h2>
+      <canvas id="pvCanvas" height="320"></canvas>
+      <div class="pv-legend">
+        <span><span class="sw" style="background:#4dffa0;"></span>Bucle actual</span>
+        <span><span class="sw" style="background:repeating-linear-gradient(90deg,#ffb454 0 4px,transparent 4px 8px);"></span>RFS (Emax) · contractilidad</span>
+        <span><span class="sw" style="background:repeating-linear-gradient(90deg,#7a5a28 0 4px,transparent 4px 8px);"></span>RFD · rigidez diastólica</span>
+      </div>
+
+      <div class="strip-block">
+        <div class="lbl">ECG (derivación II)</div>
+        <canvas id="ecgStrip" class="strip-canvas" height="84"></canvas>
+      </div>
+      <div class="strip-block">
+        <div class="lbl">Presión (mmHg) — VI sólido · aórtica punteada</div>
+        <canvas id="presStrip" class="strip-canvas" height="84"></canvas>
+      </div>
+      <div class="strip-block">
+        <div class="lbl">Volumen ventricular (mL)</div>
+        <canvas id="volStrip" class="strip-canvas" height="84"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <footer class="legend">
+    <b>Cómo leerlo:</b> el bucle se recorre en sentido <span class="key">horario</span>: sube casi vertical (contracción isovolumétrica, coincide con el QRS), se curva hacia la izquierda mientras eyecta sangre (coincide con el ST-T), baja casi vertical (relajación isovolumétrica, fin de la onda T) y vuelve a la derecha mientras se llena (diástole, hasta la próxima onda P). El punto que se mueve en el bucle es el mismo instante que el borde derecho de las tres tiras de abajo. Modelo simplificado de elastancia variable con fines didácticos, no un dato de paciente real.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+
+/* ---------------- ECG model (lead II, reused timing from the vector simulator) ---------------- */
+const ECG_SEGMENTS = [
+  {t0:20,  t1:100, angle:55,  amp:0.15},
+  {t0:140, t1:155, angle:-30, amp:0.15},
+  {t0:155, t1:205, angle:65,  amp:1.3},
+  {t0:205, t1:225, angle:100, amp:0.25},
+  {t0:280, t1:420, angle:50,  amp:0.35},
+];
+const LEAD_II_ANGLE = 60;
+function ecgVectorAt(tBase){
+  for(const s of ECG_SEGMENTS){
+    if(tBase>=s.t0 && tBase<=s.t1){
+      const frac=(tBase-s.t0)/(s.t1-s.t0);
+      return {angle:s.angle, mag:s.amp*Math.sin(Math.PI*frac)};
+    }
+  }
+  return {angle:0,mag:0};
+}
+function ecgValueAt(tBase){
+  const v=ecgVectorAt(tBase);
+  return v.mag*Math.cos((v.angle-LEAD_II_ANGLE)*Math.PI/180);
+}
+
+/* ---------------- hemodynamic model (time-varying elastance, single beat) ---------------- */
+const V0 = 10;          // unstressed ventricular volume (mL)
+const PAD_RATIO = 0.7;  // aortic valve opening pressure as fraction of Pes
+const AO_TAU_BASE = 220; // decay constant for aortic diastolic runoff, in base-800 units
+
+let EDV=120, Emax=2.0, Ea=1.2, stiffIdx=3, bpm=75;
+function stiffToKd(idx){ return 0.0003 + (idx-1)/9*(0.0025-0.0003); }
+
+function computeHemo(){
+  const Kd = stiffToKd(stiffIdx);
+  const ESV = (Ea*EDV + Emax*V0)/(Emax+Ea);
+  const Pes = Emax*(ESV-V0);
+  const EDP = Kd*Math.pow(EDV-V0,2);
+  const Pmin = Kd*Math.pow(ESV-V0,2);
+  const Pad = PAD_RATIO*Pes;
+  const SV = EDV-ESV;
+  const EF = SV/EDV*100;
+  const CO = SV*bpm/1000;
+  const preAtrialV = ESV + 0.8*(EDV-ESV);
+  return {V0,Kd,EDV,ESV,Pes,EDP,Pmin,Pad,SV,EF,CO,preAtrialV};
+}
+function smoothstep(x){ x=Math.max(0,Math.min(1,x)); return x*x*(3-2*x); }
+
+// phase boundaries in base-800 units (aligned to ECG_SEGMENTS timings)
+const B_AKICK0=20, B_AKICK1=100, B_IVC0=100, B_IVC1=160, B_EJ0=160, B_EJ1=380, B_IVR0=380, B_IVR1=440;
+
+function stateAt(tBase, h){
+  let phase, V, P, mitral, aortic;
+  if(tBase>=B_AKICK0 && tBase<B_AKICK1){
+    phase='akick'; mitral=true; aortic=false;
+    const f=(tBase-B_AKICK0)/(B_AKICK1-B_AKICK0);
+    V = h.preAtrialV + (h.EDV-h.preAtrialV)*smoothstep(f);
+    P = h.Kd*Math.pow(V-h.V0,2);
+  } else if(tBase>=B_IVC0 && tBase<B_IVC1){
+    phase='ivc'; mitral=false; aortic=false;
+    const f=(tBase-B_IVC0)/(B_IVC1-B_IVC0);
+    V = h.EDV;
+    P = h.EDP + (h.Pad-h.EDP)*smoothstep(f);
+  } else if(tBase>=B_EJ0 && tBase<B_EJ1){
+    phase='eject'; mitral=false; aortic=true;
+    const f=(tBase-B_EJ0)/(B_EJ1-B_EJ0);
+    V = h.EDV - (h.EDV-h.ESV)*smoothstep(f);
+    P = h.Pad + (h.Pes-h.Pad)*f + 0.12*h.Pes*Math.sin(Math.PI*f);
+  } else if(tBase>=B_IVR0 && tBase<B_IVR1){
+    phase='ivr'; mitral=false; aortic=false;
+    const f=(tBase-B_IVR0)/(B_IVR1-B_IVR0);
+    V = h.ESV;
+    P = h.Pes - (h.Pes-h.Pmin)*smoothstep(f);
+  } else {
+    phase='fill'; mitral=true; aortic=false;
+    const raw = tBase>=B_IVR1 ? tBase-B_IVR1 : tBase+(800-B_IVR1);
+    const span = 800-B_IVR1+B_AKICK0;
+    const f = raw/span;
+    V = h.ESV + (h.preAtrialV-h.ESV)*(1-Math.pow(1-f,2));
+    P = h.Kd*Math.pow(V-h.V0,2);
+  }
+  // aortic pressure
+  let ao;
+  if(phase==='eject'){ ao = P; }
+  else {
+    const raw = tBase>=B_EJ1 ? tBase-B_EJ1 : tBase+(800-B_EJ1);
+    ao = h.Pad + (h.Pes-h.Pad)*Math.exp(-raw/AO_TAU_BASE);
+  }
+  return {V,P,ao,phase,mitral,aortic};
+}
+
+const PHASE_INFO = {
+  fill:  {name:'Llenado ventricular',           desc:'La sangre entra desde la aurícula; el ventrículo se relaja y su volumen sube siguiendo la curva de rigidez diastólica.'},
+  akick: {name:'Sístole auricular (onda P)',    desc:'La aurícula se contrae y empuja el último volumen hacia el ventrículo, completando el llenado justo antes del QRS.'},
+  ivc:   {name:'Contracción isovolumétrica',    desc:'Ambas válvulas cerradas: el ventrículo se contrae sin cambiar de volumen mientras la presión sube rápido — coincide con el QRS.'},
+  eject: {name:'Eyección ventricular',          desc:'La válvula aórtica se abre, la sangre sale y el volumen cae hasta el volumen sistólico final — coincide con el ST y la onda T.'},
+  ivr:   {name:'Relajación isovolumétrica',     desc:'La válvula aórtica se cierra; el ventrículo se relaja sin cambiar de volumen hasta que la presión cae por debajo de la aurícula — fin de la onda T.'},
+};
+
+/* ---------------- recompute loop on parameter change ---------------- */
+let hemo, loopPoints=[], SW=0, xMax=220, yMax=140;
+function recompute(){
+  hemo = computeHemo();
+  loopPoints=[];
+  for(let tb=0; tb<800; tb+=4){ loopPoints.push(stateAt(tb,hemo)); }
+  let area=0;
+  for(let i=0;i<loopPoints.length;i++){
+    const a=loopPoints[i], b=loopPoints[(i+1)%loopPoints.length];
+    area += a.V*b.P - b.V*a.P;
+  }
+  SW = Math.abs(area)/2;
+  xMax = Math.ceil(Math.max(220, hemo.EDV*1.25)/20)*20;
+  yMax = Math.ceil(Math.max(140, hemo.Pes*1.3)/20)*20;
+
+  document.getElementById('statEDV').textContent = Math.round(hemo.EDV)+' mL';
+  document.getElementById('statESV').textContent = Math.round(hemo.ESV)+' mL';
+  document.getElementById('statSV').textContent  = Math.round(hemo.SV)+' mL';
+  document.getElementById('statEF').textContent  = hemo.EF.toFixed(0)+' %';
+  document.getElementById('statCO').textContent  = hemo.CO.toFixed(1)+' L/min';
+  document.getElementById('statSW').textContent  = Math.round(SW)+' mmHg·mL';
+}
+
+/* ---------------- clock ---------------- */
+let playing=true, elapsed=0, lastTs=null;
+function tBaseNow(){
+  const cycle=60000/bpm;
+  const tc = ((elapsed % cycle)+cycle)%cycle;
+  return (tc/cycle)*800;
+}
+function tBaseFromReal(realT){
+  const cycle=60000/bpm;
+  const tc = ((realT % cycle)+cycle)%cycle;
+  return (tc/cycle)*800;
+}
+
+/* ---------------- canvas helpers ---------------- */
+function fitCanvas(cvs){
+  const cssW = cvs.clientWidth || cvs.parentElement.clientWidth;
+  const cssH = parseInt(cvs.getAttribute('height'),10);
+  const ratio = window.devicePixelRatio||1;
+  cvs.width = cssW*ratio; cvs.height = cssH*ratio;
+  cvs.style.height = cssH+'px';
+  return ratio;
+}
+function drawBg(ctx,w,h){
+  ctx.fillStyle='#070a08'; ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle='rgba(77,255,160,0.06)'; ctx.lineWidth=1;
+  for(let x=0;x<w;x+=8){ ctx.beginPath(); ctx.moveTo(x+.5,0); ctx.lineTo(x+.5,h); ctx.stroke(); }
+  for(let y=0;y<h;y+=8){ ctx.beginPath(); ctx.moveTo(0,y+.5); ctx.lineTo(w,y+.5); ctx.stroke(); }
+}
+
+/* ---------------- PV loop canvas ---------------- */
+const pvCvs = document.getElementById('pvCanvas'); const pvCtx = pvCvs.getContext('2d');
+const M = {l:46,r:16,t:14,b:30};
+function toPx(V,P,w,h){
+  const pw=w-M.l-M.r, ph=h-M.t-M.b;
+  const x = M.l + (V/xMax)*pw;
+  const y = M.t + ph - (P/yMax)*ph;
+  return [x,y];
+}
+function drawPV(){
+  const w=pvCvs.width, h=pvCvs.height;
+  drawBg(pvCtx,w,h);
+  const pw=w-M.l-M.r, ph=h-M.t-M.b;
+
+  // axes
+  pvCtx.strokeStyle='#26382e'; pvCtx.lineWidth=1;
+  pvCtx.beginPath(); pvCtx.moveTo(M.l,M.t); pvCtx.lineTo(M.l,M.t+ph); pvCtx.lineTo(M.l+pw,M.t+ph); pvCtx.stroke();
+  pvCtx.fillStyle='#5f8271'; pvCtx.font='10px monospace'; pvCtx.textAlign='center';
+  for(let vv=0; vv<=xMax; vv+=Math.round(xMax/5/10)*10){
+    const [x,y] = toPx(vv,0,w,h);
+    pvCtx.fillText(vv, x, h-M.b+14);
+  }
+  pvCtx.textAlign='right';
+  for(let pp=0; pp<=yMax; pp+=Math.round(yMax/5/10)*10){
+    const [x,y] = toPx(0,pp,w,h);
+    pvCtx.fillText(pp, M.l-8, y+3);
+  }
+  pvCtx.save();
+  pvCtx.translate(12,M.t+ph/2); pvCtx.rotate(-Math.PI/2);
+  pvCtx.textAlign='center'; pvCtx.fillText('Presión (mmHg)',0,0);
+  pvCtx.restore();
+  pvCtx.textAlign='center';
+  pvCtx.fillText('Volumen (mL)', M.l+pw/2, h-4);
+
+  // ESPVR
+  pvCtx.strokeStyle='#ffb454'; pvCtx.setLineDash([4,4]); pvCtx.lineWidth=1.3;
+  pvCtx.beginPath();
+  let p1=toPx(V0,0,w,h), p2=toPx(xMax, Math.min(yMax,hemo.Emax*(xMax-V0)) ,w,h);
+  pvCtx.moveTo(p1[0],p1[1]); pvCtx.lineTo(p2[0],p2[1]); pvCtx.stroke();
+
+  // EDPVR
+  pvCtx.strokeStyle='#7a5a28';
+  pvCtx.beginPath();
+  for(let vv=V0; vv<=Math.min(xMax, hemo.EDV*1.3); vv+=2){
+    const pp=Math.min(yMax, hemo.Kd*Math.pow(vv-V0,2));
+    const [x,y]=toPx(vv,pp,w,h);
+    if(vv===V0) pvCtx.moveTo(x,y); else pvCtx.lineTo(x,y);
+  }
+  pvCtx.stroke();
+  pvCtx.setLineDash([]);
+
+  // guide lines EDV / ESV / EDP / Pes
+  pvCtx.strokeStyle='rgba(223,245,232,0.18)'; pvCtx.lineWidth=1; pvCtx.setLineDash([2,3]);
+  const pEDV=toPx(hemo.EDV,0,w,h), pEDVtop=toPx(hemo.EDV,hemo.EDP,w,h);
+  pvCtx.beginPath(); pvCtx.moveTo(pEDV[0],pEDV[1]); pvCtx.lineTo(pEDVtop[0],pEDVtop[1]); pvCtx.stroke();
+  const pESV=toPx(hemo.ESV,0,w,h), pESVtop=toPx(hemo.ESV,hemo.Pes,w,h);
+  pvCtx.beginPath(); pvCtx.moveTo(pESV[0],pESV[1]); pvCtx.lineTo(pESVtop[0],pESVtop[1]); pvCtx.stroke();
+  pvCtx.setLineDash([]);
+  pvCtx.fillStyle='#dff5e8'; pvCtx.font='9.5px monospace'; pvCtx.textAlign='center';
+  pvCtx.fillText('VSF', pESV[0], h-M.b+14);
+  pvCtx.fillText('VDF', pEDV[0], h-M.b+27);
+
+  // filled loop
+  pvCtx.beginPath();
+  loopPoints.forEach((pt,i)=>{ const [x,y]=toPx(pt.V,pt.P,w,h); if(i===0) pvCtx.moveTo(x,y); else pvCtx.lineTo(x,y); });
+  pvCtx.closePath();
+  pvCtx.fillStyle='rgba(77,255,160,0.10)'; pvCtx.fill();
+  pvCtx.strokeStyle='#4dffa0'; pvCtx.lineWidth=2; pvCtx.shadowColor='rgba(77,255,160,.4)'; pvCtx.shadowBlur=4;
+  pvCtx.stroke(); pvCtx.shadowBlur=0;
+
+  // live dot
+  const now = stateAt(tBaseNow(), hemo);
+  const [dx,dy] = toPx(now.V, now.P, w, h);
+  pvCtx.beginPath(); pvCtx.arc(dx,dy,6,0,Math.PI*2);
+  pvCtx.fillStyle='#eafff2'; pvCtx.shadowColor='rgba(255,255,255,.8)'; pvCtx.shadowBlur=8; pvCtx.fill(); pvCtx.shadowBlur=0;
+
+  return now;
+}
+
+/* ---------------- time strips ---------------- */
+const ecgCvs=document.getElementById('ecgStrip'), ecgCtx=ecgCvs.getContext('2d');
+const presCvs=document.getElementById('presStrip'), presCtx=presCvs.getContext('2d');
+const volCvs=document.getElementById('volStrip'), volCtx=volCvs.getContext('2d');
+const WINDOW_MS=3600;
+
+function drawLine(ctx,w,h,fn,color,gain,offset,dashed){
+  ctx.beginPath();
+  ctx.strokeStyle=color; ctx.lineWidth=1.6;
+  if(dashed) ctx.setLineDash([4,3]); else ctx.setLineDash([]);
+  for(let x=0;x<=w;x++){
+    const t = elapsed-(WINDOW_MS*(1-x/w));
+    const val = fn(t);
+    const y = h*0.9 - (val-offset)*gain;
+    if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.stroke(); ctx.setLineDash([]);
+}
+function drawStrips(){
+  let w=ecgCvs.width,h=ecgCvs.height;
+  drawBg(ecgCtx,w,h);
+  drawLine(ecgCtx,w,h,(t)=>ecgValueAt(tBaseFromReal(t)), '#4dffa0', h*0.35, 0, false);
+
+  w=presCvs.width; h=presCvs.height;
+  drawBg(presCtx,w,h);
+  drawLine(presCtx,w,h,(t)=>stateAt(tBaseFromReal(t),hemo).ao, '#ffb454', h*0.75/yMax, 0, true);
+  drawLine(presCtx,w,h,(t)=>stateAt(tBaseFromReal(t),hemo).P, '#4dffa0', h*0.75/yMax, 0, false);
+
+  w=volCvs.width; h=volCvs.height;
+  drawBg(volCtx,w,h);
+  drawLine(volCtx,w,h,(t)=>stateAt(tBaseFromReal(t),hemo).V, '#4dd2ff', h*0.75/xMax, 0, false);
+}
+
+/* ---------------- explain / phase panel ---------------- */
+function updatePhasePanel(now){
+  const info = PHASE_INFO[now.phase];
+  document.getElementById('phaseName').textContent = info.name;
+  document.getElementById('phaseDesc').textContent = info.desc;
+  const mEl=document.getElementById('valveMitral'), aEl=document.getElementById('valveAortic');
+  mEl.textContent = 'Mitral: '+(now.mitral?'abierta':'cerrada');
+  mEl.className = 'valve '+(now.mitral?'open':'closed');
+  aEl.textContent = 'Aórtica: '+(now.aortic?'abierta':'cerrada');
+  aEl.className = 'valve '+(now.aortic?'open':'closed');
+}
+
+/* ---------------- main loop ---------------- */
+function fitAll(){
+  fitCanvas(pvCvs); fitCanvas(ecgCvs); fitCanvas(presCvs); fitCanvas(volCvs);
+}
+fitAll();
+window.addEventListener('resize', fitAll);
+
+function loop(ts){
+  if(lastTs===null) lastTs=ts;
+  const dt=ts-lastTs; lastTs=ts;
+  if(playing) elapsed+=dt;
+  const now = drawPV();
+  drawStrips();
+  updatePhasePanel(now);
+  requestAnimationFrame(loop);
+}
+recompute();
+requestAnimationFrame(loop);
+
+/* ---------------- UI wiring ---------------- */
+document.getElementById('playBtn').addEventListener('click', function(){
+  playing=!playing; this.textContent = playing?'❚❚':'▶';
+});
+function bind(id,lblId,fmt,apply){
+  const el=document.getElementById(id), lbl=document.getElementById(lblId);
+  el.addEventListener('input', function(){
+    apply(parseFloat(this.value));
+    lbl.textContent = fmt(parseFloat(this.value));
+    recompute();
+  });
+}
+bind('sEDV','lblEDV', v=>Math.round(v)+' mL', v=>EDV=v);
+bind('sEmax','lblEmax', v=>(v/10).toFixed(1)+' mmHg/mL', v=>Emax=v/10);
+bind('sEa','lblEa', v=>(v/10).toFixed(1)+' mmHg/mL', v=>Ea=v/10);
+bind('sStiff','lblStiff', v=>Math.round(v)+' / 10', v=>stiffIdx=v);
+bind('sHR','lblHR', v=>Math.round(v)+' lpm', v=>{ bpm=v; document.getElementById('hrNum').textContent=Math.round(v); });
+
+})();
+</script>
+</body>
+</html>

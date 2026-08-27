@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador ECG · Teoría del dipolo</title>
+<style>
+  :root{
+    --bezel:#0b0f0d;
+    --panel:#101613;
+    --panel-2:#0d1210;
+    --line:#1e2b23;
+    --phosphor:#4dffa0;
+    --phosphor-dim:#1f5c40;
+    --amber:#ffb454;
+    --amber-dim:#7a5a28;
+    --ink:#dff5e8;
+    --ink-dim:#7fa392;
+    --red:#ff6b6b;
+    --mono: 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", Inter, system-ui, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:#000;}
+  body{
+    font-family:var(--sans);
+    color:var(--ink);
+    background:
+      radial-gradient(ellipse at 50% -10%, #16241c 0%, transparent 55%),
+      var(--bezel);
+    min-height:100vh;
+    padding:22px 16px 40px;
+  }
+  .rack{ max-width:1180px; margin:0 auto; }
+  header.top{
+    display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between;
+    gap:14px; padding:4px 6px 14px; border-bottom:1px solid var(--line); margin-bottom:14px;
+  }
+  .brand-eyebrow{ font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--amber); margin:0 0 6px; }
+  h1{ margin:0; font-size:26px; font-weight:650; letter-spacing:-0.01em; }
+  .sub{ margin:6px 0 0; color:var(--ink-dim); font-size:13.5px; max-width:54ch; line-height:1.5; }
+  .hr-readout{ font-family:var(--mono); text-align:right; }
+  .hr-readout .num{ font-size:42px; color:var(--phosphor); line-height:1; text-shadow:0 0 14px rgba(77,255,160,.55); }
+  .hr-readout .lbl{ font-size:10.5px; letter-spacing:.14em; color:var(--ink-dim); text-transform:uppercase; }
+
+  .mode-tabs{ display:flex; gap:8px; margin:0 0 18px; padding:0 6px; }
+  .mode-tab{
+    font-family:var(--mono); font-size:12px; letter-spacing:.04em;
+    background:transparent; color:var(--ink-dim); border:1px solid var(--line);
+    border-radius:20px; padding:8px 16px; cursor:pointer; transition:all .15s ease;
+  }
+  .mode-tab:hover{ border-color:var(--phosphor-dim); color:var(--ink); }
+  .mode-tab.active{ background:rgba(255,180,84,.12); border-color:var(--amber); color:var(--amber); }
+
+  .grid{ display:grid; grid-template-columns: 300px 1fr; gap:16px; }
+  @media (max-width: 880px){ .grid{grid-template-columns:1fr;} }
+
+  .panel{ background:linear-gradient(180deg,var(--panel),var(--panel-2)); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  .panel h2{ margin:0 0 10px; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-dim); font-weight:600; }
+
+  .controls-row{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  button.play{
+    background:var(--phosphor-dim); color:var(--phosphor); border:1px solid var(--phosphor);
+    border-radius:7px; width:38px;height:34px; font-size:14px; cursor:pointer;
+    display:flex;align-items:center;justify-content:center; flex:0 0 auto;
+  }
+  button.play:hover{filter:brightness(1.25);}
+  .bpm-wrap{flex:1;}
+  .bpm-wrap label{ display:flex;justify-content:space-between; font-family:var(--mono); font-size:11px; color:var(--ink-dim); margin-bottom:4px; }
+  input[type=range]{ -webkit-appearance:none; width:100%; height:4px; border-radius:2px; background:var(--line); outline:none; }
+  input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:14px;height:14px;border-radius:50%; background:var(--amber); border:2px solid #241a08; cursor:pointer; }
+
+  .manual-hint{
+    font-size:12.5px; line-height:1.55; color:var(--ink-dim);
+    background:rgba(255,180,84,0.07); border:1px solid var(--amber-dim);
+    border-radius:7px; padding:9px 10px; margin-bottom:14px;
+  }
+  .manual-hint b{ color:var(--amber); }
+
+  .lead-group-title{ font-family:var(--mono); font-size:10px; color:var(--ink-dim); letter-spacing:.1em; margin:12px 0 6px; text-transform:uppercase; }
+  .lead-buttons{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+  .lead-btn{
+    font-family:var(--mono); font-size:12.5px; background:transparent; color:var(--ink-dim);
+    border:1px solid var(--line); border-radius:6px; padding:7px 0; cursor:pointer; transition:all .12s ease;
+  }
+  .lead-btn:hover{ border-color:var(--phosphor-dim); color:var(--ink); }
+  .lead-btn.active{ background:rgba(255,180,84,0.1); border-color:var(--amber); color:var(--amber); }
+
+  .diagrams{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+  .diagram-box{ background:#080b09; border:1px solid var(--line); border-radius:8px; padding:6px; }
+  .diagram-box.draggable svg{ cursor: grab; touch-action:none; }
+  .diagram-box .cap{ text-align:center; font-family:var(--mono); font-size:9.5px; color:var(--ink-dim); letter-spacing:.06em; text-transform:uppercase; margin-top:2px; }
+  .diagram-box .readout{ text-align:center; font-family:var(--mono); font-size:10.5px; color:var(--phosphor); margin-top:1px; min-height:14px; }
+  svg text{ font-family:var(--mono); }
+
+  .info{ margin-top:14px; padding-top:12px; border-top:1px solid var(--line); font-family:var(--mono); font-size:12.5px; line-height:1.7; }
+  .info .row{display:flex; justify-content:space-between; color:var(--ink-dim);}
+  .info .row b{color:var(--ink); font-weight:600;}
+  .explain{
+    margin-top:10px; padding:10px 11px; border-radius:7px; font-size:12.8px; line-height:1.55;
+    background:rgba(77,255,160,0.06); border:1px solid var(--phosphor-dim); color:var(--ink); min-height:64px;
+  }
+  .explain.neg{ background:rgba(255,107,107,0.07); border-color:#7a2c2c; }
+  .explain.flat{ background:rgba(255,180,84,0.06); border-color:var(--amber-dim); }
+  .explain b{color:var(--phosphor);}
+  .explain.neg b{color:var(--red);}
+  .explain.flat b{color:var(--amber);}
+
+  .strip-head{ display:flex;justify-content:space-between;align-items:baseline; margin-bottom:8px; }
+  .strip-head .lead-name{ font-family:var(--mono); font-size:20px; color:var(--phosphor); text-shadow:0 0 10px rgba(77,255,160,.4); }
+  .strip-head .lead-desc{ font-size:12px;color:var(--ink-dim); }
+  canvas#mainStrip{ width:100%; display:block; border-radius:6px; background:#070a08; }
+
+  .grid12{ margin-top:16px; display:grid; grid-template-columns:repeat(4,1fr); grid-template-rows:repeat(3,1fr); gap:8px; }
+  @media (max-width:640px){ .grid12{grid-template-columns:repeat(2,1fr);} }
+  .cell{ background:#070a08; border:1px solid var(--line); border-radius:6px; padding:5px 6px 4px; cursor:pointer; transition:border-color .12s; }
+  .cell:hover{border-color:var(--phosphor-dim);}
+  .cell.active{border-color:var(--amber);}
+  .cell .name{ font-family:var(--mono); font-size:11px; color:var(--ink-dim); }
+  .cell.active .name{color:var(--amber);}
+  .cell canvas{width:100%;display:block;}
+
+  /* manual mode panels */
+  .triangle-box{ background:#080b09; border:1px solid var(--line); border-radius:8px; padding:12px; }
+  #formulaText{ font-family:var(--mono); font-size:13px; line-height:1.9; color:var(--ink); margin-top:8px; }
+  #formulaText .hl{ color:var(--amber); }
+  #formulaText .res{ color:var(--phosphor); font-weight:700; }
+
+  .barchart{ margin-top:16px; }
+  .bargroup-title{ font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-dim); margin:14px 0 6px; }
+  .barrow{ display:grid; grid-template-columns:46px 1fr 68px; align-items:center; gap:10px; margin-bottom:6px; }
+  .barrow.selected .lbl{ color:var(--amber); }
+  .barrow .lbl{ font-family:var(--mono); font-size:12.5px; color:var(--ink-dim); cursor:pointer; }
+  .bartrack{ position:relative; height:14px; background:#0d130f; border-radius:3px; overflow:hidden; }
+  .bartrack .mid{ position:absolute; left:50%; top:0; bottom:0; width:1px; background:var(--line); }
+  .barfill{ position:absolute; top:1px; bottom:1px; border-radius:2px; }
+  .barfill.pos{ background:linear-gradient(90deg,var(--phosphor-dim),var(--phosphor)); left:50%; }
+  .barfill.neg{ background:linear-gradient(90deg,var(--red),#7a2c2c); right:50%; }
+  .barval{ font-family:var(--mono); font-size:11.5px; text-align:right; color:var(--ink-dim); }
+
+  .manual-only{ display:none; }
+  body.mode-manual .manual-only{ display:block; }
+  body.mode-manual .auto-only{ display:none !important; }
+  body.mode-manual .diagram-box{ border-color: var(--phosphor-dim); }
+
+  footer.legend{ margin-top:20px; color:var(--ink-dim); font-size:12px; line-height:1.7; padding:0 6px; }
+  footer.legend b{color:var(--ink);}
+  footer.legend .key{color:var(--phosphor);font-family:var(--mono);}
+</style>
+</head>
+<body class="mode-auto">
+
+<div class="rack">
+
+  <header class="top">
+    <div>
+      <p class="brand-eyebrow">Teoría del dipolo · Einthoven, 1903</p>
+      <h1>Simulador de electrocardiografía básica</h1>
+      <p class="sub">Un vector de despolarización rota dentro del corazón. Cada derivación mira ese vector desde un ángulo distinto: si se acerca, la onda es positiva; si se aleja, es negativa.</p>
+    </div>
+    <div class="hr-readout auto-only">
+      <div class="num" id="hrNum">75</div>
+      <div class="lbl">lpm · frecuencia</div>
+    </div>
+  </header>
+
+  <div class="mode-tabs">
+    <button class="mode-tab active" id="modeAutoBtn">◉ Ciclo cardíaco automático</button>
+    <button class="mode-tab" id="modeManualBtn">✥ Vector manual (arrastrar)</button>
+  </div>
+
+  <div class="grid">
+
+    <!-- LEFT: controls + vector diagrams -->
+    <div class="panel">
+      <h2 class="auto-only">Controles</h2>
+      <div class="controls-row auto-only">
+        <button class="play" id="playBtn" aria-label="Pausar / reproducir">❚❚</button>
+        <div class="bpm-wrap">
+          <label><span>Frecuencia cardíaca</span><span id="bpmLbl">75 lpm</span></label>
+          <input type="range" id="bpmSlider" min="40" max="160" value="75">
+        </div>
+      </div>
+
+      <div class="manual-hint manual-only">
+        <b>Arrastrá</b> la punta verde de cada diagrama para fijar el ángulo y la magnitud del vector. El plano frontal mueve las derivaciones de miembros; el plano horizontal mueve las precordiales — son independientes.
+      </div>
+
+      <h2>Derivación para inspeccionar</h2>
+      <div class="lead-group-title">Plano frontal · miembros</div>
+      <div class="lead-buttons" id="limbLeads"></div>
+      <div class="lead-group-title">Plano horizontal · precordiales</div>
+      <div class="lead-buttons" id="precLeads"></div>
+
+      <div class="diagrams">
+        <div class="diagram-box" id="boxFrontal">
+          <svg id="svgFrontal" viewBox="0 0 240 240"></svg>
+          <div class="cap">Plano frontal</div>
+          <div class="readout manual-only" id="readoutFrontal"></div>
+        </div>
+        <div class="diagram-box" id="boxHoriz">
+          <svg id="svgHoriz" viewBox="0 0 240 240"></svg>
+          <div class="cap">Plano horizontal</div>
+          <div class="readout manual-only" id="readoutHoriz"></div>
+        </div>
+      </div>
+
+      <div class="info auto-only">
+        <div class="row"><span>Fase actual</span><b id="phaseLbl">—</b></div>
+        <div class="row"><span>Ángulo del vector</span><b id="vecAngleLbl">—</b></div>
+        <div class="row"><span>Eje de la derivación</span><b id="leadAngleLbl">—</b></div>
+      </div>
+      <div class="explain auto-only" id="explainBox">Presioná play y elegí una derivación para ver cómo se forma su trazado.</div>
+    </div>
+
+    <!-- RIGHT: main view -->
+    <div class="panel">
+
+      <div class="auto-only" id="autoView">
+        <div class="strip-head">
+          <div>
+            <div class="lead-name" id="stripLeadName">II</div>
+            <div class="lead-desc" id="stripLeadDesc">Vector hacia +60° — mira casi de frente al vector principal</div>
+          </div>
+        </div>
+        <canvas id="mainStrip" height="260"></canvas>
+
+        <h2 style="margin-top:18px;">Las 12 derivaciones a la vez</h2>
+        <div class="grid12" id="grid12"></div>
+      </div>
+
+      <div class="manual-only" id="manualView">
+        <h2>Geometría de la proyección — derivación <span id="triLeadName" style="color:var(--amber);">II</span></h2>
+        <div class="triangle-box">
+          <svg id="svgTriangle" viewBox="0 0 340 300" style="width:100%;display:block;"></svg>
+          <div id="formulaText"></div>
+        </div>
+
+        <div class="barchart">
+          <div class="bargroup-title">Deflexión instantánea · plano frontal (miembros)</div>
+          <div id="barsFrontal"></div>
+          <div class="bargroup-title">Deflexión instantánea · plano horizontal (precordiales)</div>
+          <div id="barsHoriz"></div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <footer class="legend">
+    <b>Cómo leerlo:</b> el trazo grande corresponde a la derivación elegida. El diagrama de la izquierda muestra el vector eléctrico girando (o fijado a mano) dentro del ciclo <span class="key">P → QRS → T</span>; la línea punteada es el eje de la derivación activa. Cuando el vector apunta <b>hacia</b> ese eje, la onda sube (positiva); cuando apunta <b>en contra</b>, baja (negativa); si es casi perpendicular, la onda queda pequeña o bifásica. En el modo manual podés fijar cualquier vector y ver de inmediato la proyección — ideal para explicar el eje eléctrico del corazón. Modelo simplificado con fines didácticos, no un ECG diagnóstico.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+
+/* ---------------- MODEL: rotating dipole vector (auto mode) ---------------- */
+const BASE_CYCLE = 800;
+
+const FRONTAL_SEGMENTS = [
+  {name:'Onda P',   t0:20,  t1:100, angle:55,  amp:0.15},
+  {name:'Q septal', t0:140, t1:155, angle:-30, amp:0.15},
+  {name:'R principal', t0:155, t1:205, angle:65, amp:1.3},
+  {name:'S basal',  t0:205, t1:225, angle:100, amp:0.25},
+  {name:'Onda T',   t0:280, t1:420, angle:50,  amp:0.35},
+];
+const HORIZ_SEGMENTS = [
+  {name:'Onda P',   t0:20,  t1:100, angle:-20, amp:0.08},
+  {name:'Q septal', t0:140, t1:155, angle:-90, amp:0.15},
+  {name:'R principal', t0:155, t1:205, angle:45, amp:1.3},
+  {name:'S basal',  t0:205, t1:225, angle:80,  amp:0.30},
+  {name:'Onda T',   t0:280, t1:420, angle:40,  amp:0.35},
+];
+
+function phaseNameAt(tBase, segs){
+  for(const s of segs){ if(tBase>=s.t0 && tBase<=s.t1) return s.name; }
+  if(tBase < FRONTAL_SEGMENTS[0].t0) return 'Diástole';
+  if(tBase > 100 && tBase < 140) return 'Segmento PR';
+  if(tBase > 225 && tBase < 280) return 'Segmento ST';
+  return 'Diástole';
+}
+function vectorAt(tBase, segs){
+  for(const s of segs){
+    if(tBase>=s.t0 && tBase<=s.t1){
+      const frac = (tBase - s.t0)/(s.t1-s.t0);
+      const mag = s.amp * Math.sin(Math.PI*frac);
+      return {angle:s.angle, mag:mag};
+    }
+  }
+  return {angle:0, mag:0};
+}
+function projectedValue(tBase, segs, leadAngleDeg){
+  const v = vectorAt(tBase, segs);
+  return v.mag * Math.cos((v.angle - leadAngleDeg)*Math.PI/180);
+}
+
+/* ---------------- LEADS ---------------- */
+const LEADS = {
+  I:   {plane:'frontal', angle:0,   desc:'Eje horizontal — RA(–) a LA(+)'},
+  II:  {plane:'frontal', angle:60,  desc:'Casi paralela al vector principal: la más “clásica”'},
+  III: {plane:'frontal', angle:120, desc:'LA(–) a LL(+)'},
+  aVR: {plane:'frontal', angle:210, desc:'Mira el corazón “desde arriba a la derecha”: casi todo negativo'},
+  aVL: {plane:'frontal', angle:330, desc:'Hombro izquierdo del corazón'},
+  aVF: {plane:'frontal', angle:90,  desc:'Cara inferior del corazón'},
+  V1:  {plane:'horiz',   angle:-90, desc:'Para-esternal derecha: ve llegar el septo, alejarse el resto → rS'},
+  V2:  {plane:'horiz',   angle:-60, desc:'Para-esternal izquierda'},
+  V3:  {plane:'horiz',   angle:-30, desc:'Zona de transición: r y s parecidas'},
+  V4:  {plane:'horiz',   angle:0,   desc:'Línea medio-clavicular'},
+  V5:  {plane:'horiz',   angle:30,  desc:'Línea axilar anterior'},
+  V6:  {plane:'horiz',   angle:60,  desc:'Línea axilar media: ve alejarse el septo, llegar el resto → qR'},
+};
+const LIMB_ORDER = ['I','II','III','aVR','aVL','aVF'];
+const PREC_ORDER = ['V1','V2','V3','V4','V5','V6'];
+
+let selectedLead = 'II';
+let mode = 'auto'; // 'auto' | 'manual'
+let manualVector = { frontal:{angle:65, mag:0.85}, horiz:{angle:45, mag:0.85} };
+
+/* ---------------- STATE / CLOCK ---------------- */
+let playing = true;
+let bpm = 75;
+let elapsed = 0;
+let lastTs = null;
+function tBaseNow(){
+  const cycle = 60000/bpm;
+  const tInCycle = elapsed % cycle;
+  return (tInCycle/cycle) * BASE_CYCLE;
+}
+function currentVector(plane){
+  if(mode==='manual') return manualVector[plane];
+  const segs = plane==='frontal'?FRONTAL_SEGMENTS:HORIZ_SEGMENTS;
+  return vectorAt(tBaseNow(), segs);
+}
+
+/* ---------------- BUILD LEAD BUTTONS ---------------- */
+function refreshLeadSelection(){
+  document.querySelectorAll('.lead-btn').forEach(x=>x.classList.toggle('active', x.dataset.lead===selectedLead));
+  document.querySelectorAll('.cell').forEach(x=>x.classList.toggle('active', x.dataset.lead===selectedLead));
+  document.getElementById('stripLeadName').textContent = selectedLead;
+  document.getElementById('stripLeadDesc').textContent = LEADS[selectedLead].desc;
+  document.getElementById('triLeadName').textContent = selectedLead;
+}
+function selectLead(n){
+  selectedLead = n;
+  refreshLeadSelection();
+  if(mode==='manual') renderManualPanels();
+}
+function buildButtons(containerId, names){
+  const el = document.getElementById(containerId);
+  names.forEach(n=>{
+    const b = document.createElement('button');
+    b.className='lead-btn'+(n===selectedLead?' active':'');
+    b.textContent=n; b.dataset.lead=n;
+    b.addEventListener('click', ()=>selectLead(n));
+    el.appendChild(b);
+  });
+}
+buildButtons('limbLeads', LIMB_ORDER);
+buildButtons('precLeads', PREC_ORDER);
+document.getElementById('stripLeadDesc').textContent = LEADS[selectedLead].desc;
+
+/* ---------------- 12-lead mini grid (auto mode) ---------------- */
+const miniCanvases = {};
+(function buildGrid12(){
+  const el = document.getElementById('grid12');
+  [...LIMB_ORDER, ...PREC_ORDER].forEach(n=>{
+    const cell = document.createElement('div');
+    cell.className='cell'+(n===selectedLead?' active':'');
+    cell.dataset.lead=n;
+    const name = document.createElement('div');
+    name.className='name'; name.textContent=n;
+    const cvs = document.createElement('canvas');
+    cvs.width=260; cvs.height=54;
+    cell.appendChild(name); cell.appendChild(cvs);
+    cell.addEventListener('click', ()=>selectLead(n));
+    el.appendChild(cell);
+    miniCanvases[n]=cvs;
+  });
+})();
+
+/* ---------------- SVG vector diagrams (shared) ---------------- */
+const svgFrontal = document.getElementById('svgFrontal');
+const svgHoriz = document.getElementById('svgHoriz');
+
+function buildDiagram(svg, leadDefs, prefix){
+  svg.innerHTML='';
+  const ns='http://www.w3.org/2000/svg';
+  const cx=120, cy=120, r=82;
+  const circ=document.createElementNS(ns,'circle');
+  circ.setAttribute('cx',cx); circ.setAttribute('cy',cy); circ.setAttribute('r',r);
+  circ.setAttribute('fill','none'); circ.setAttribute('stroke','#1e2b23'); circ.setAttribute('stroke-width','1');
+  svg.appendChild(circ);
+
+  Object.entries(leadDefs).forEach(([name,def])=>{
+    const rad = def.angle*Math.PI/180;
+    const x2 = cx + r*Math.cos(rad), y2 = cy + r*Math.sin(rad);
+    const line=document.createElementNS(ns,'line');
+    line.setAttribute('x1',cx); line.setAttribute('y1',cy);
+    line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+    line.setAttribute('stroke','#26382e'); line.setAttribute('stroke-width','1');
+    line.setAttribute('class','axisline'); line.dataset.lead=name;
+    svg.appendChild(line);
+    const lx = cx + (r+20)*Math.cos(rad), ly = cy + (r+20)*Math.sin(rad);
+    const txt=document.createElementNS(ns,'text');
+    txt.setAttribute('x',lx); txt.setAttribute('y',ly+3);
+    txt.setAttribute('fill','#5f8271'); txt.setAttribute('font-size','9.5');
+    txt.setAttribute('text-anchor','middle');
+    txt.textContent=name; txt.dataset.lead=name;
+    svg.appendChild(txt);
+  });
+
+  const dashed=document.createElementNS(ns,'line');
+  dashed.setAttribute('id','dashed'+prefix);
+  dashed.setAttribute('stroke','#ffb454'); dashed.setAttribute('stroke-width','1.4');
+  dashed.setAttribute('stroke-dasharray','3 3'); dashed.setAttribute('opacity','0');
+  svg.appendChild(dashed);
+
+  const foot=document.createElementNS(ns,'circle');
+  foot.setAttribute('id','foot'+prefix);
+  foot.setAttribute('r','3.4'); foot.setAttribute('fill','#ffb454'); foot.setAttribute('opacity','0');
+  svg.appendChild(foot);
+  const footLine=document.createElementNS(ns,'line');
+  footLine.setAttribute('id','footLine'+prefix);
+  footLine.setAttribute('stroke','#ffb454'); footLine.setAttribute('stroke-width','1');
+  footLine.setAttribute('opacity','0'); footLine.setAttribute('stroke-dasharray','2 2');
+  svg.appendChild(footLine);
+
+  const center=document.createElementNS(ns,'circle');
+  center.setAttribute('cx',cx); center.setAttribute('cy',cy); center.setAttribute('r','2.4');
+  center.setAttribute('fill','#3a5647');
+  svg.appendChild(center);
+
+  const arrow=document.createElementNS(ns,'line');
+  arrow.setAttribute('id','arrow'+prefix);
+  arrow.setAttribute('x1',cx); arrow.setAttribute('y1',cy);
+  arrow.setAttribute('x2',cx); arrow.setAttribute('y2',cy);
+  arrow.setAttribute('stroke','#4dffa0'); arrow.setAttribute('stroke-width','2.6');
+  arrow.setAttribute('stroke-linecap','round');
+  svg.appendChild(arrow);
+  const head=document.createElementNS(ns,'circle');
+  head.setAttribute('id','head'+prefix);
+  head.setAttribute('r','5.5'); head.setAttribute('fill','#4dffa0');
+  head.style.cursor='grab';
+  svg.appendChild(head);
+}
+
+const FRONTAL_DEFS = {}; LIMB_ORDER.forEach(n=>FRONTAL_DEFS[n]={angle:LEADS[n].angle});
+const HORIZ_DEFS = {}; PREC_ORDER.forEach(n=>HORIZ_DEFS[n]={angle:LEADS[n].angle});
+buildDiagram(svgFrontal, FRONTAL_DEFS, 'Frontal');
+buildDiagram(svgHoriz, HORIZ_DEFS, 'Horiz');
+
+function updateDiagram(svg, plane, prefix, cx, cy, r){
+  const v = currentVector(plane);
+  const rad = v.angle*Math.PI/180;
+  const len = 14 + v.mag*(r-14);
+  const x2 = cx+len*Math.cos(rad), y2=cy+len*Math.sin(rad);
+  const arrow = svg.querySelector('#arrow'+prefix);
+  const head = svg.querySelector('#head'+prefix);
+  arrow.setAttribute('x2',x2); arrow.setAttribute('y2',y2);
+  head.setAttribute('cx',x2); head.setAttribute('cy',y2);
+  const activeColor = v.mag>0.02 ? '#4dffa0' : '#2c4437';
+  arrow.setAttribute('stroke', activeColor);
+  head.setAttribute('fill', activeColor);
+
+  const lead = LEADS[selectedLead];
+  const isThisPlane = lead.plane === plane;
+  svg.querySelectorAll('.axisline').forEach(l=>{
+    l.setAttribute('stroke', l.dataset.lead===selectedLead && isThisPlane ? '#ffb454' : '#26382e');
+    l.setAttribute('stroke-width', l.dataset.lead===selectedLead && isThisPlane ? '1.8':'1');
+  });
+  svg.querySelectorAll('text').forEach(t=>{
+    t.setAttribute('fill', t.dataset.lead===selectedLead && isThisPlane ? '#ffb454' : '#5f8271');
+  });
+
+  const dashed = svg.querySelector('#dashed'+prefix);
+  const foot = svg.querySelector('#foot'+prefix);
+  const footLine = svg.querySelector('#footLine'+prefix);
+  if(isThisPlane){
+    const la = lead.angle*Math.PI/180;
+    dashed.setAttribute('x1', cx-r*Math.cos(la)); dashed.setAttribute('y1', cy-r*Math.sin(la));
+    dashed.setAttribute('x2', cx+r*Math.cos(la)); dashed.setAttribute('y2', cy+r*Math.sin(la));
+    dashed.setAttribute('opacity','0.9');
+    const proj = (x2-cx)*Math.cos(la) + (y2-cy)*Math.sin(la);
+    const fx = cx+proj*Math.cos(la), fy = cy+proj*Math.sin(la);
+    foot.setAttribute('cx',fx); foot.setAttribute('cy',fy); foot.setAttribute('opacity', v.mag>0.02?'1':'0');
+    footLine.setAttribute('x1',x2); footLine.setAttribute('y1',y2);
+    footLine.setAttribute('x2',fx); footLine.setAttribute('y2',fy);
+    footLine.setAttribute('opacity', v.mag>0.02?'0.8':'0');
+  } else {
+    dashed.setAttribute('opacity','0'); foot.setAttribute('opacity','0'); footLine.setAttribute('opacity','0');
+  }
+
+  if(mode==='manual'){
+    const ro = document.getElementById('readout'+prefix);
+    if(ro) ro.textContent = Math.round(v.angle<0?v.angle+360:v.angle)+'°  ·  '+v.mag.toFixed(2)+' mV';
+  }
+}
+
+/* ---------------- drag to set manual vector ---------------- */
+function svgPointFromEvent(svg, evt){
+  const rect = svg.getBoundingClientRect();
+  const scaleX = 240/rect.width, scaleY = 240/rect.height;
+  return { x:(evt.clientX-rect.left)*scaleX, y:(evt.clientY-rect.top)*scaleY };
+}
+function attachDrag(svg, plane){
+  let dragging=false;
+  svg.addEventListener('pointerdown', (e)=>{
+    if(mode!=='manual') return;
+    dragging=true; svg.setPointerCapture && svg.setPointerCapture(e.pointerId);
+    handleDrag(e);
+  });
+  svg.addEventListener('pointermove', (e)=>{ if(dragging) handleDrag(e); });
+  window.addEventListener('pointerup', ()=>{ dragging=false; });
+  function handleDrag(e){
+    const p = svgPointFromEvent(svg,e);
+    const dx=p.x-120, dy=p.y-120;
+    let ang = Math.atan2(dy,dx)*180/Math.PI;
+    let mag = Math.min(1, Math.hypot(dx,dy)/82);
+    manualVector[plane] = { angle:ang, mag:Math.max(0.06,mag) };
+    if(mode==='manual') renderManualPanels();
+  }
+}
+attachDrag(svgFrontal,'frontal');
+attachDrag(svgHoriz,'horiz');
+
+/* ---------------- Strip chart rendering (auto mode) ---------------- */
+const mainCvs = document.getElementById('mainStrip');
+const mainCtx = mainCvs.getContext('2d');
+function fitCanvas(cvs){
+  const cssW = cvs.clientWidth || cvs.parentElement.clientWidth;
+  const ratio = window.devicePixelRatio||1;
+  cvs.width = cssW*ratio;
+  cvs.style.height = cvs.getAttribute('height')+'px';
+  return ratio;
+}
+function drawGrid(ctx,w,h){
+  ctx.fillStyle='#070a08'; ctx.fillRect(0,0,w,h);
+  const minor=8, major=40;
+  ctx.strokeStyle='rgba(77,255,160,0.06)'; ctx.lineWidth=1;
+  for(let x=0;x<w;x+=minor){ ctx.beginPath(); ctx.moveTo(x+.5,0); ctx.lineTo(x+.5,h); ctx.stroke(); }
+  for(let y=0;y<h;y+=minor){ ctx.beginPath(); ctx.moveTo(0,y+.5); ctx.lineTo(w,y+.5); ctx.stroke(); }
+  ctx.strokeStyle='rgba(77,255,160,0.15)';
+  for(let x=0;x<w;x+=major){ ctx.beginPath(); ctx.moveTo(x+.5,0); ctx.lineTo(x+.5,h); ctx.stroke(); }
+  for(let y=0;y<h;y+=major){ ctx.beginPath(); ctx.moveTo(0,y+.5); ctx.lineTo(w,y+.5); ctx.stroke(); }
+}
+function sample(leadName, realT){
+  const lead = LEADS[leadName];
+  const segs = lead.plane==='frontal'?FRONTAL_SEGMENTS:HORIZ_SEGMENTS;
+  const cycle = 60000/bpm;
+  let tc = realT % cycle; if(tc<0) tc+=cycle;
+  const tBase = (tc/cycle)*BASE_CYCLE;
+  return projectedValue(tBase, segs, lead.angle);
+}
+function drawStrip(ctx,w,h,leadName,windowMs,gain,glow){
+  drawGrid(ctx,w,h);
+  const midY = h*0.58;
+  ctx.beginPath();
+  ctx.strokeStyle = '#4dffa0';
+  ctx.lineWidth = glow ? 2 : 1.4;
+  if(glow){ ctx.shadowColor='rgba(77,255,160,.55)'; ctx.shadowBlur=6; } else { ctx.shadowBlur=0; }
+  const N = w;
+  for(let x=0;x<=N;x++){
+    const t = elapsed - (windowMs*(1-x/N));
+    const v = sample(leadName, t);
+    const y = midY - v*gain;
+    if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.stroke(); ctx.shadowBlur=0;
+}
+
+/* ---------------- explanation text (auto mode) ---------------- */
+function updateExplain(){
+  const lead = LEADS[selectedLead];
+  const segs = lead.plane==='frontal'?FRONTAL_SEGMENTS:HORIZ_SEGMENTS;
+  const tb = tBaseNow();
+  const v = vectorAt(tb, segs);
+  const phase = phaseNameAt(tb, segs);
+  document.getElementById('phaseLbl').textContent = phase;
+  document.getElementById('vecAngleLbl').textContent = v.mag>0.01 ? Math.round(v.angle)+'°' : '—';
+  document.getElementById('leadAngleLbl').textContent = selectedLead+' ('+lead.angle+'°)';
+
+  const box = document.getElementById('explainBox');
+  if(v.mag<0.02){
+    box.className='explain flat';
+    box.innerHTML = '<b>Línea de base.</b> No hay vector activo en este instante (segmento PR o ST): la pluma no se mueve.';
+    return;
+  }
+  const cosv = Math.cos((v.angle-lead.angle)*Math.PI/180);
+  if(Math.abs(cosv) < 0.18){
+    box.className='explain flat';
+    box.innerHTML = '<b>Vector casi perpendicular</b> al eje de '+selectedLead+'. La deflexión es pequeña o bifásica: la derivación apenas “ve” este vector.';
+  } else if(cosv>0){
+    box.className='explain';
+    box.innerHTML = '<b>El vector se acerca</b> al electrodo positivo de '+selectedLead+' → deflexión <b>positiva</b> ('+phase+').';
+  } else {
+    box.className='explain neg';
+    box.innerHTML = '<b>El vector se aleja</b> del electrodo positivo de '+selectedLead+' → deflexión <b>negativa</b> ('+phase+').';
+  }
+}
+
+/* ---------------- MANUAL MODE: projection triangle + bar chart ---------------- */
+function norm180(a){ a = a % 360; if(a>180) a-=360; if(a<-180) a+=360; return a; }
+
+function updateProjectionTriangle(){
+  const lead = LEADS[selectedLead];
+  const v = currentVector(lead.plane);
+  const theta = norm180(v.angle - lead.angle);
+  const cosv = Math.cos(theta*Math.PI/180);
+  const proj = v.mag*cosv;
+
+  const svg = document.getElementById('svgTriangle');
+  const ns='http://www.w3.org/2000/svg';
+  svg.innerHTML='';
+  const ox=170, oy=150, scale=108;
+
+  // axis line (horizontal, both directions)
+  const axis=document.createElementNS(ns,'line');
+  axis.setAttribute('x1',15); axis.setAttribute('y1',oy);
+  axis.setAttribute('x2',325); axis.setAttribute('y2',oy);
+  axis.setAttribute('stroke','#26382e'); axis.setAttribute('stroke-width','1.5');
+  svg.appendChild(axis);
+  const axisLbl=document.createElementNS(ns,'text');
+  axisLbl.setAttribute('x',325); axisLbl.setAttribute('y',oy-10);
+  axisLbl.setAttribute('fill','#7fa392'); axisLbl.setAttribute('font-size','11'); axisLbl.setAttribute('text-anchor','end');
+  axisLbl.textContent='eje de '+selectedLead+' (+)';
+  svg.appendChild(axisLbl);
+
+  // vector line (angle measured from axis, thetaRad; screen y down so use -theta visually for up display when cos positive... keep raw)
+  const thetaRad = theta*Math.PI/180;
+  const vx = ox + v.mag*scale*Math.cos(thetaRad);
+  const vy2 = oy + v.mag*scale*Math.sin(thetaRad);
+  const vec=document.createElementNS(ns,'line');
+  vec.setAttribute('x1',ox); vec.setAttribute('y1',oy);
+  vec.setAttribute('x2',vx); vec.setAttribute('y2',vy2);
+  vec.setAttribute('stroke','#4dffa0'); vec.setAttribute('stroke-width','2.6'); vec.setAttribute('stroke-linecap','round');
+  svg.appendChild(vec);
+  const head=document.createElementNS(ns,'circle');
+  head.setAttribute('cx',vx); head.setAttribute('cy',vy2); head.setAttribute('r','4.5'); head.setAttribute('fill','#4dffa0');
+  svg.appendChild(head);
+  const vecLbl=document.createElementNS(ns,'text');
+  vecLbl.setAttribute('x', ox + (vx-ox)*0.55 + 8); vecLbl.setAttribute('y', oy + (vy2-oy)*0.55 - 6);
+  vecLbl.setAttribute('fill','#4dffa0'); vecLbl.setAttribute('font-size','12');
+  vecLbl.textContent='V = '+v.mag.toFixed(2)+' mV';
+  svg.appendChild(vecLbl);
+
+  // foot of perpendicular on axis
+  const fx = ox + proj*scale;
+  const dropLine=document.createElementNS(ns,'line');
+  dropLine.setAttribute('x1',vx); dropLine.setAttribute('y1',vy2);
+  dropLine.setAttribute('x2',fx); dropLine.setAttribute('y2',oy);
+  dropLine.setAttribute('stroke','#ffb454'); dropLine.setAttribute('stroke-width','1.3'); dropLine.setAttribute('stroke-dasharray','3 3');
+  svg.appendChild(dropLine);
+
+  // right-angle marker at foot
+  const s=7;
+  const rightMark=document.createElementNS(ns,'path');
+  const signY = (vy2>oy)?1:-1;
+  rightMark.setAttribute('d', `M ${fx-s} ${oy} L ${fx-s} ${oy-signY*s} L ${fx} ${oy-signY*s}`);
+  rightMark.setAttribute('fill','none'); rightMark.setAttribute('stroke','#5f8271'); rightMark.setAttribute('stroke-width','1');
+  svg.appendChild(rightMark);
+
+  // projection segment on axis (origin to foot)
+  const projLine=document.createElementNS(ns,'line');
+  projLine.setAttribute('x1',ox); projLine.setAttribute('y1',oy);
+  projLine.setAttribute('x2',fx); projLine.setAttribute('y2',oy);
+  projLine.setAttribute('stroke','#ffb454'); projLine.setAttribute('stroke-width','3.2'); projLine.setAttribute('stroke-linecap','round');
+  svg.appendChild(projLine);
+  const footDot=document.createElementNS(ns,'circle');
+  footDot.setAttribute('cx',fx); footDot.setAttribute('cy',oy); footDot.setAttribute('r','3.6'); footDot.setAttribute('fill','#ffb454');
+  svg.appendChild(footDot);
+  const projLbl=document.createElementNS(ns,'text');
+  projLbl.setAttribute('x', ox+(fx-ox)/2); projLbl.setAttribute('y', oy+16);
+  projLbl.setAttribute('fill','#ffb454'); projLbl.setAttribute('font-size','11.5'); projLbl.setAttribute('text-anchor','middle');
+  projLbl.textContent='proyección = '+proj.toFixed(2)+' mV';
+  svg.appendChild(projLbl);
+
+  // angle arc at origin
+  const arcR=26;
+  const arcEndX = ox+arcR*Math.cos(thetaRad), arcEndY = oy+arcR*Math.sin(thetaRad);
+  const largeArc = Math.abs(theta)>180?1:0;
+  const sweep = theta>=0?1:0;
+  const arcPath=document.createElementNS(ns,'path');
+  arcPath.setAttribute('d', `M ${ox+arcR} ${oy} A ${arcR} ${arcR} 0 ${largeArc} ${sweep} ${arcEndX} ${arcEndY}`);
+  arcPath.setAttribute('fill','none'); arcPath.setAttribute('stroke','#7fa392'); arcPath.setAttribute('stroke-width','1.2');
+  svg.appendChild(arcPath);
+  const thetaLbl=document.createElementNS(ns,'text');
+  const midAng = thetaRad/2;
+  thetaLbl.setAttribute('x', ox+(arcR+16)*Math.cos(midAng)); thetaLbl.setAttribute('y', oy+(arcR+16)*Math.sin(midAng)+4);
+  thetaLbl.setAttribute('fill','#7fa392'); thetaLbl.setAttribute('font-size','12'); thetaLbl.setAttribute('text-anchor','middle');
+  thetaLbl.textContent='θ='+Math.round(theta)+'°';
+  svg.appendChild(thetaLbl);
+
+  // origin dot
+  const originDot=document.createElementNS(ns,'circle');
+  originDot.setAttribute('cx',ox); originDot.setAttribute('cy',oy); originDot.setAttribute('r','3'); originDot.setAttribute('fill','#5f8271');
+  svg.appendChild(originDot);
+
+  const formula = document.getElementById('formulaText');
+  formula.innerHTML =
+    'Proyección sobre <span class="hl">'+selectedLead+'</span> &nbsp;=&nbsp; |V| × cos(θ)<br>'+
+    '&nbsp;&nbsp;=&nbsp; '+v.mag.toFixed(2)+' × cos('+Math.round(theta)+'°)<br>'+
+    '&nbsp;&nbsp;=&nbsp; '+v.mag.toFixed(2)+' × '+cosv.toFixed(2)+'<br>'+
+    '&nbsp;&nbsp;=&nbsp; <span class="res">'+proj.toFixed(2)+' mV</span> → onda '+(proj>0.05?'positiva':(proj<-0.05?'negativa':'chica / bifásica'));
+}
+
+function buildBarRows(containerId, names){
+  const el = document.getElementById(containerId);
+  el.innerHTML='';
+  names.forEach(n=>{
+    const row=document.createElement('div');
+    row.className='barrow'+(n===selectedLead?' selected':'');
+    row.innerHTML =
+      '<div class="lbl" data-lead="'+n+'">'+n+'</div>'+
+      '<div class="bartrack"><div class="mid"></div><div class="barfill" id="fill-'+n+'"></div></div>'+
+      '<div class="barval" id="val-'+n+'">0.00 mV</div>';
+    row.querySelector('.lbl').addEventListener('click', ()=>selectLead(n));
+    el.appendChild(row);
+  });
+}
+buildBarRows('barsFrontal', LIMB_ORDER);
+buildBarRows('barsHoriz', PREC_ORDER);
+
+function updateBarChart(){
+  [...LIMB_ORDER,...PREC_ORDER].forEach(n=>{
+    const lead = LEADS[n];
+    const v = currentVector(lead.plane);
+    const val = v.mag*Math.cos((v.angle-lead.angle)*Math.PI/180);
+    const fill = document.getElementById('fill-'+n);
+    const valEl = document.getElementById('val-'+n);
+    const pct = Math.min(50, Math.abs(val)/1.3*50);
+    fill.className = 'barfill '+(val>=0?'pos':'neg');
+    fill.style.width = pct+'%';
+    valEl.textContent = (val>=0?'+':'')+val.toFixed(2)+' mV';
+    valEl.style.color = Math.abs(val)<0.05 ? '#7fa392' : (val>0?'#4dffa0':'#ff6b6b');
+  });
+  document.querySelectorAll('.barrow').forEach(r=>{
+    const lbl = r.querySelector('.lbl');
+    r.classList.toggle('selected', lbl.dataset.lead===selectedLead);
+  });
+}
+
+function renderManualPanels(){
+  updateProjectionTriangle();
+  updateBarChart();
+  updateDiagram(svgFrontal,'frontal','Frontal',120,120,82);
+  updateDiagram(svgHoriz,'horiz','Horiz',120,120,82);
+}
+
+/* ---------------- main loop ---------------- */
+let mainRatio = fitCanvas(mainCvs);
+window.addEventListener('resize', ()=>{ mainRatio = fitCanvas(mainCvs); if(mode==='manual') renderManualPanels(); });
+
+function loop(ts){
+  if(lastTs===null) lastTs=ts;
+  const dt = ts-lastTs; lastTs=ts;
+  if(playing && mode==='auto') elapsed += dt;
+
+  if(mode==='auto'){
+    const w = mainCvs.width, h = mainCvs.height;
+    drawStrip(mainCtx, w, h, selectedLead, 3200, h*0.16, true);
+    [...LIMB_ORDER,...PREC_ORDER].forEach(n=>{
+      const cvs = miniCanvases[n];
+      const cctx = cvs.getContext('2d');
+      drawStrip(cctx, cvs.width, cvs.height, n, 1800, cvs.height*0.15, n===selectedLead);
+    });
+    updateDiagram(svgFrontal,'frontal','Frontal',120,120,82);
+    updateDiagram(svgHoriz,'horiz','Horiz',120,120,82);
+    updateExplain();
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ---------------- UI wiring ---------------- */
+document.getElementById('playBtn').addEventListener('click', function(){
+  playing=!playing;
+  this.textContent = playing ? '❚❚' : '▶';
+});
+document.getElementById('bpmSlider').addEventListener('input', function(){
+  bpm = parseInt(this.value,10);
+  document.getElementById('bpmLbl').textContent = bpm+' lpm';
+  document.getElementById('hrNum').textContent = bpm;
+});
+
+const modeAutoBtn = document.getElementById('modeAutoBtn');
+const modeManualBtn = document.getElementById('modeManualBtn');
+function setMode(m){
+  mode = m;
+  document.body.classList.toggle('mode-manual', m==='manual');
+  document.body.classList.toggle('mode-auto', m==='auto');
+  modeAutoBtn.classList.toggle('active', m==='auto');
+  modeManualBtn.classList.toggle('active', m==='manual');
+  if(m==='manual'){ renderManualPanels(); }
+}
+modeAutoBtn.addEventListener('click', ()=>setMode('auto'));
+modeManualBtn.addEventListener('click', ()=>setMode('manual'));
+
+})();
+</script>
+</body>
+</html>

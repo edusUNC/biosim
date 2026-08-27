@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador Avanzado de Fisiología Cardíaca</title>
+  <style>
+    :root {
+      --primary-color: #2c7a7b;
+      --secondary-color: #edf2f7;
+      --accent-color: #dd6b20;
+      --text-color: #2d3748;
+      --bg-color: #f7fafc;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      line-height: 1.6;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    .container {
+      max-width: 900px;
+      width: 100%;
+      background-color: #ffffff;
+      padding: 25px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    h1,
+    h2 {
+      color: var(--primary-color);
+      border-bottom: 2px solid var(--secondary-color);
+      padding-bottom: 10px;
+      text-align: center;
+    }
+
+    .graphs-container {
+      display: grid;
+      grid-template-columns: 2fr 1.5fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .graph-wrapper {
+      padding: 15px;
+      background-color: var(--secondary-color);
+      border-radius: 8px;
+    }
+
+    .graph-wrapper svg text {
+      font-size: 11px;
+      fill: #718096;
+      font-family: inherit;
+    }
+
+    .graph-wrapper .axis-line {
+      stroke: #a0aec0;
+      stroke-width: 2;
+    }
+
+    #co-curve {
+      fill: none;
+      stroke: var(--primary-color);
+      stroke-width: 3;
+      stroke-linecap: round;
+    }
+
+    #current-point {
+      fill: var(--accent-color);
+      stroke: white;
+      stroke-width: 2;
+      transition: all 0.1s linear;
+    }
+
+    #pv-loop-path {
+      fill: rgba(44, 122, 123, 0.2);
+      stroke: var(--primary-color);
+      stroke-width: 3;
+      transition: d 0.1s linear;
+    }
+
+    .main-controls {
+      background-color: #fdfdfd;
+      border: 1px solid #e0e0e0;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .control-group {
+      margin-bottom: 15px;
+    }
+
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .result-group {
+      text-align: center;
+    }
+
+    .result-label {
+      font-weight: bold;
+    }
+
+    .value-display {
+      font-size: 1.4em;
+      font-weight: bold;
+      color: var(--primary-color);
+    }
+
+    .explanation {
+      background-color: #fdfdfd;
+      border: 1px solid #e0e0e0;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+
+    .explanation strong {
+      color: var(--primary-color);
+    }
+
+    @media (max-width: 800px) {
+      .graphs-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <h1>Simulador Final de Fisiología Cardíaca</h1>
+
+    <div class="graphs-container">
+      <div class="graph-wrapper">
+        <svg id="co-graph" width="100%" height="300" viewBox="0 0 400 300"></svg>
+      </div>
+      <div class="graph-wrapper">
+        <svg id="pv-loop-graph" width="100%" height="300" viewBox="0 0 300 300"></svg>
+      </div>
+    </div>
+
+    <div class="main-controls">
+      <div class="control-group">
+        <label for="age-slider" style="font-weight: bold;">Edad: <span id="age-value">30</span> años</label>
+        <input type="range" id="age-slider" min="20" max="80" step="1" value="30">
+      </div>
+      <div class="control-group">
+        <label for="hr-slider" style="font-weight: bold;">Frecuencia Cardíaca (FC)</label>
+        <input type="range" id="hr-slider" min="40" max="190" step="1" value="70">
+      </div>
+
+      <div class="results-grid">
+        <div class="result-group">
+          <div class="result-label">Frec. Cardíaca</div>
+          <div class="value-display" id="hr-value">70 lpm</div>
+        </div>
+        <div class="result-group">
+          <div class="result-label">Vol. Sistólico</div>
+          <div class="value-display" id="sv-value">... mL</div>
+        </div>
+        <div class="result-group">
+          <div class="result-label">Gasto Cardíaco</div>
+          <div class="value-display" id="co-value">... L/min</div>
+        </div>
+        <div class="result-group">
+          <div class="result-label">Trabajo/Latido</div>
+          <div class="value-display" id="sw-value">...</div>
+        </div>
+        <div class="result-group">
+          <div class="result-label">Trabajo/Minuto</div>
+          <div class="value-display" id="wpm-value">...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="explanation">
+      <h2>La Historia Completa: Frecuencia, Volumen y Trabajo</h2>
+      <p>Este simulador combina dos gráficos para explicar por qué "más rápido" no siempre es "mejor" para el corazón.
+      </p>
+      <ol>
+        <li><strong>Gráfico Izquierdo (Rendimiento General):</strong> Muestra cómo el <strong>Gasto Cardíaco
+            (GC)</strong>, el rendimiento total del corazón, aumenta con la Frecuencia Cardíaca (FC) hasta un punto
+          óptimo, y luego cae.</li>
+        <li><strong>Gráfico Derecho (Trabajo por Latido):</strong> Este es el bucle Presión-Volumen (PV). Representa un
+          único latido. Su <strong>anchura</strong> es el Volumen Sistólico (VS) y su <strong>área</strong> es el
+          trabajo realizado en ese latido.</li>
+      </ol>
+      <p>Al aumentar la frecuencia cardíaca, notarás que el bucle PV se vuelve <strong>más estrecho y pequeño</strong>.
+        Esto se debe a que el corazón tiene menos <strong>tiempo para llenarse (diástole)</strong>. Aunque late más
+        veces, cada latido es más débil y expulsa menos sangre. La caída en el trabajo y volumen de cada latido es tan
+        grande que, eventualmente, el rendimiento total (Gasto Cardíaco) disminuye.</p>
+    </div>
+  </div>
+
+  <script>
+    const ageSlider = document.getElementById('age-slider');
+    const ageValue = document.getElementById('age-value');
+    const hrSlider = document.getElementById('hr-slider');
+    const hrValue = document.getElementById('hr-value');
+    const svValue = document.getElementById('sv-value');
+    const coValue = document.getElementById('co-value');
+    const swValue = document.getElementById('sw-value');
+    const wpmValue = document.getElementById('wpm-value');
+    const coGraph = document.getElementById('co-graph');
+    const pvLoopGraph = document.getElementById('pv-loop-graph');
+
+    const MAX_SV = 85, MIN_SV = 30;
+    const HR_START_DROP = 110;
+    const ESV_BASE = 50;
+    const PEAK_SYSTOLIC_PRESSURE = 130;
+    const END_DIASTOLIC_PRESSURE = 10;
+
+    const SVG_CO_W = 400, SVG_CO_H = 300;
+    const SVG_PV_W = 300, SVG_PV_H = 300;
+    const PADDING = 45;
+
+    function calculateSV(hr) {
+      if (hr < HR_START_DROP) return MAX_SV;
+      const hrMaxTheoric = 220; // Use theoretical max for SV drop calculation
+      const slope = (MIN_SV - MAX_SV) / (hrMaxTheoric - HR_START_DROP);
+      return Math.max(MIN_SV, MAX_SV + slope * (hr - HR_START_DROP));
+    }
+
+    function mapCOToGraph(hr, co, hrMax) {
+      const x = PADDING + ((hr - 40) / (hrMax - 40)) * (SVG_CO_W - PADDING - PADDING);
+      const y = (SVG_CO_H - PADDING) - (co / 16) * (SVG_CO_H - PADDING - PADDING);
+      return { x, y };
+    }
+
+    function mapPVToGraph(volume, pressure) {
+      const x = PADDING + (volume / 160) * (SVG_PV_W - PADDING - PADDING);
+      const y = (SVG_PV_H - PADDING) - (pressure / 150) * (SVG_PV_H - PADDING - PADDING);
+      return { x, y };
+    }
+
+    function updateSimulator() {
+      const hr = parseInt(hrSlider.value);
+      const sv = calculateSV(hr);
+      const co = (hr * sv) / 1000;
+      const workPerBeat = sv * (PEAK_SYSTOLIC_PRESSURE - END_DIASTOLIC_PRESSURE) / 1000;
+
+      hrValue.textContent = `${hr} lpm`;
+      svValue.textContent = `${sv.toFixed(1)} mL`;
+      coValue.textContent = `${co.toFixed(2)} L/min`;
+      swValue.textContent = `${workPerBeat.toFixed(2)}`;
+      wpmValue.textContent = `${(workPerBeat * hr).toFixed(0)}`;
+
+      const hrMax = parseInt(hrSlider.max);
+      const { x, y } = mapCOToGraph(hr, co, hrMax);
+      document.getElementById('current-point').setAttribute('cx', x);
+      document.getElementById('current-point').setAttribute('cy', y);
+
+      updatePVLoop(hr, sv);
+    }
+
+    function updatePVLoop(hr, sv) {
+      let esv = ESV_BASE;
+      if (hr > 150) esv += (hr - 150) / 8;
+      const edv = sv + esv;
+
+      const p1 = mapPVToGraph(esv, END_DIASTOLIC_PRESSURE + 5);
+      const p2 = mapPVToGraph(edv, END_DIASTOLIC_PRESSURE);
+      const p3 = mapPVToGraph(edv, PEAK_SYSTOLIC_PRESSURE);
+      const p4 = mapPVToGraph(esv, PEAK_SYSTOLIC_PRESSURE - 10);
+
+      const pathData = `M ${p1.x} ${p1.y} C ${p1.x} ${p1.y - 10}, ${p2.x - 30} ${p2.y}, ${p2.x} ${p2.y} L ${p3.x} ${p3.y} C ${p3.x} ${p3.y + 10}, ${p4.x + 30} ${p4.y}, ${p4.x} ${p4.y} L ${p1.x} ${p1.y} Z`;
+      document.getElementById('pv-loop-path').setAttribute('d', pathData);
+    }
+
+    function updateAge() {
+      const age = parseInt(ageSlider.value);
+      ageValue.textContent = `${age}`;
+      const maxHR = 220 - age;
+      hrSlider.max = maxHR;
+      if (parseInt(hrSlider.value) > maxHR) {
+        hrSlider.value = maxHR;
+      }
+      // Redraw CO graph based on new max HR
+      initializeGraphs();
+      updateSimulator();
+    }
+
+    function initializeGraphs() {
+      const hrMax = parseInt(hrSlider.max);
+
+      // --- Inicializar Gráfico de Gasto Cardíaco ---
+      coGraph.innerHTML = '';
+      coGraph.innerHTML += `<line class="axis-line" x1="${PADDING}" y1="${SVG_CO_H - PADDING}" x2="${SVG_CO_W - PADDING}" y2="${SVG_CO_H - PADDING}"/>`;
+      coGraph.innerHTML += `<line class="axis-line" x1="${PADDING}" y1="${PADDING}" x2="${PADDING}" y2="${SVG_CO_H - PADDING}"/>`;
+      coGraph.innerHTML += `<text x="${SVG_CO_W / 2}" y="${SVG_CO_H - 10}" text-anchor="middle">Frecuencia Cardíaca (lpm)</text>`;
+      coGraph.innerHTML += `<text x="${-SVG_CO_H / 2}" y="15" text-anchor="middle" transform="rotate(-90)">Gasto Cardíaco (L/min)</text>`;
+
+      let coPathData = "M";
+      for (let hr = 40; hr <= hrMax; hr++) {
+        const co = (hr * calculateSV(hr)) / 1000;
+        const { x, y } = mapCOToGraph(hr, co, hrMax);
+        coPathData += (hr === 40 ? '' : ' L') + `${x},${y}`;
+      }
+      coGraph.innerHTML += `<path id="co-curve" d="${coPathData}"/>`;
+      coGraph.innerHTML += `<circle id="current-point" r="6"/>`;
+
+      [40, Math.round(hrMax / 2 + 20), hrMax].forEach(hr => {
+        const { x } = mapCOToGraph(hr, 0, hrMax);
+        coGraph.innerHTML += `<text x="${x}" y="${SVG_CO_H - PADDING + 15}" text-anchor="middle">${hr}</text>`;
+      });
+      [0, 5, 10, 15].forEach(co => {
+        const { y } = mapCOToGraph(0, co, hrMax);
+        coGraph.innerHTML += `<text x="${PADDING - 10}" y="${y + 3}" text-anchor="end">${co}</text>`;
+      });
+
+      // --- Inicializar Gráfico de Bucle PV ---
+      pvLoopGraph.innerHTML = '';
+      pvLoopGraph.innerHTML += `<line class="axis-line" x1="${PADDING}" y1="${SVG_PV_H - PADDING}" x2="${SVG_PV_W - PADDING}" y2="${SVG_PV_H - PADDING}"/>`;
+      pvLoopGraph.innerHTML += `<line class="axis-line" x1="${PADDING}" y1="${PADDING}" x2="${PADDING}" y2="${SVG_PV_H - PADDING}"/>`;
+      pvLoopGraph.innerHTML += `<text x="${SVG_PV_W / 2}" y="${SVG_PV_H - 10}" text-anchor="middle">Volumen (mL)</text>`;
+      pvLoopGraph.innerHTML += `<text x="${-SVG_PV_H / 2}" y="15" text-anchor="middle" transform="rotate(-90)">Presión (mmHg)</text>`;
+      pvLoopGraph.innerHTML += `<path id="pv-loop-path"/>`;
+
+      [0, 50, 100, 150].forEach(vol => {
+        const { x } = mapPVToGraph(vol, 0);
+        pvLoopGraph.innerHTML += `<text x="${x}" y="${SVG_PV_H - PADDING + 15}" text-anchor="middle">${vol}</text>`;
+      });
+      [0, 50, 100, 150].forEach(p => {
+        const { y } = mapPVToGraph(0, p);
+        pvLoopGraph.innerHTML += `<text x="${PADDING - 10}" y="${y + 3}" text-anchor="end">${p}</text>`;
+      });
+    }
+
+    // --- Event Listeners e Inicialización ---
+    ageSlider.addEventListener('input', updateAge);
+    hrSlider.addEventListener('input', updateSimulator);
+    document.addEventListener('DOMContentLoaded', () => {
+      updateAge(); // Llamada inicial para establecer el maxHR
+    });
+  </script>
+</body>
+
+</html>

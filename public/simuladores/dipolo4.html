@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador Dinámico de Deflexiones Cardíacas</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f4f8;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+        h1 { color: #1a365d; text-align: center; margin-bottom: 5px; }
+        .subtitle { color: #4a5568; margin-bottom: 20px; text-align: center; }
+        
+        .container {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            max-width: 900px;
+            width: 100%;
+        }
+        
+        .controls {
+            background: #edf2f7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        input[type="range"] { width: 70%; margin-top: 10px; cursor: pointer; }
+        
+        .preset-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .btn {
+            background-color: #3182ce;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .btn:hover { background-color: #2b6cb0; }
+        .btn:active { transform: scale(0.97); }
+        .btn-pos { background-color: #38a169; }
+        .btn-pos:hover { background-color: #2f855a; }
+        .btn-neg { background-color: #e53e3e; }
+        .btn-neg:hover { background-color: #c53030; }
+        .btn-iso { background-color: #d69e2e; }
+        .btn-iso:hover { background-color: #b7791f; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        canvas {
+            background: #fff;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+            margin-bottom: 10px;
+        }
+
+        .explanation {
+            background: #ebf8fa;
+            border-left: 5px solid #319795;
+            padding: 15px;
+            border-radius: 4px;
+            font-size: 1.1em;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-weight: bold;
+            color: #234e52;
+            transition: all 0.3s;
+        }
+
+        .exp-positiva { border-left-color: #48bb78; background: #f0fff4; color: #22543d; }
+        .exp-negativa { border-left-color: #f56565; background: #fff5f5; color: #742a2a; }
+        .exp-neutra { border-left-color: #a0aec0; background: #f7fafc; color: #4a5568; }
+    </style>
+</head>
+<body>
+
+    <h1>Dinámica del Dipolo y el Electrodo</h1>
+    <p class="subtitle">Observa cómo el movimiento de las cargas genera la onda eléctrica.</p>
+    
+    <div class="container">
+        <div class="controls">
+            <label for="electrodeSlider" style="font-weight: bold; font-size: 1.2em;">
+                Posición del Electrodo Explorador: <span id="angleDisplay" style="color:#e53e3e;">60°</span>
+            </label><br>
+            <input type="range" id="electrodeSlider" min="0" max="360" value="60">
+
+            <div class="preset-buttons">
+                <button class="btn btn-pos" onclick="setPreset(60)">Máximo Positivo (+60°)</button>
+                <button class="btn btn-iso" onclick="setPreset(150)">Isodifásico (150°)</button>
+                <button class="btn btn-neg" onclick="setPreset(240)">Máximo Negativo (240°)</button>
+            </div>
+        </div>
+
+        <div class="explanation" id="liveExplanation">
+            Esperando inicio del ciclo...
+        </div>
+        <br>
+
+        <div class="grid">
+            <div class="panel">
+                <h3 style="margin-top:0;">Tejido Cardíaco</h3>
+                <canvas id="tissueCanvas" width="350" height="350"></canvas>
+            </div>
+            
+            <div class="panel">
+                <h3 style="margin-top:0;">Galvanómetro</h3>
+                <canvas id="galvanoCanvas" width="350" height="150"></canvas>
+                <h3>Registro ECG</h3>
+                <canvas id="waveCanvas" width="350" height="150"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ctxTissue = document.getElementById('tissueCanvas').getContext('2d');
+        const ctxGalvano = document.getElementById('galvanoCanvas').getContext('2d');
+        const ctxWave = document.getElementById('waveCanvas').getContext('2d');
+        
+        const slider = document.getElementById('electrodeSlider');
+        const angleDisplay = document.getElementById('angleDisplay');
+        const explanationBox = document.getElementById('liveExplanation');
+
+        // Eje normal del vector de despolarización (60 grados)
+        const vectorAngleDeg = 60; 
+        const vRad = vectorAngleDeg * (Math.PI / 180);
+        const vx = Math.cos(vRad);
+        const vy = Math.sin(vRad);
+
+        // Variables de animación
+        let time = -2; 
+        let ecgData = [];
+        let currentVoltage = 0;
+
+        function setPreset(angle) {
+            slider.value = angle;
+            // Reiniciar animación al presionar un botón
+            time = -2;
+            ecgData = [];
+        }
+
+        function updatePhysics() {
+            time += 0.03;
+            if (time > 2.5) {
+                time = -2;
+                ecgData = [];
+            }
+
+            const electrodeAngleDeg = parseInt(slider.value);
+            angleDisplay.textContent = electrodeAngleDeg + '°';
+            const eRad = electrodeAngleDeg * (Math.PI / 180);
+
+            const ex = 1.5 * Math.cos(eRad);
+            const ey = 1.5 * Math.sin(eRad);
+
+            const px = time * vx;
+            const py = time * vy;
+
+            const rx = ex - px;
+            const ry = ey - py;
+
+            const distSq = (rx * rx) + (ry * ry);
+            const dotProduct = (vx * rx) + (vy * ry);
+            const activeMass = Math.exp(-3 * time * time); 
+
+            // Cálculo del voltaje percibido por el electrodo
+            currentVoltage = (activeMass * dotProduct) / Math.pow(distSq + 0.8, 1.5);
+            
+            // Amplificación exagerada para mayor claridad visual
+            currentVoltage *= 2.8;
+
+            if (time >= -1.5 && time <= 1.5) {
+                ecgData.push(currentVoltage);
+            }
+
+            updateExplanation();
+        }
+
+        function updateExplanation() {
+            if (Math.abs(currentVoltage) < 0.08) {
+                explanationBox.textContent = "El tejido está en reposo. Línea isoeléctrica (0).";
+                explanationBox.className = "explanation exp-neutra";
+                return;
+            }
+
+            if (currentVoltage > 0.08) {
+                explanationBox.innerHTML = "Las cargas positivas (+) se <strong>ACERCAN</strong> al electrodo.<br>El galvanómetro sube (Deflexión POSITIVA).";
+                explanationBox.className = "explanation exp-positiva";
+            } else if (currentVoltage < -0.08) {
+                explanationBox.innerHTML = "Las cargas positivas (+) se <strong>ALEJAN</strong> del electrodo.<br>El galvanómetro baja (Deflexión NEGATIVA).";
+                explanationBox.className = "explanation exp-negativa";
+            }
+        }
+
+        function drawTissue() {
+            ctxTissue.clearRect(0, 0, 350, 350);
+            const cx = 175, cy = 175;
+            const r = 100;
+
+            // Tejido base
+            ctxTissue.beginPath();
+            ctxTissue.arc(cx, cy, r, 0, 2 * Math.PI);
+            ctxTissue.fillStyle = '#fce4ec';
+            ctxTissue.fill();
+            ctxTissue.strokeStyle = '#f8bbd0';
+            ctxTissue.lineWidth = 3;
+            ctxTissue.stroke();
+
+            // Frente de despolarización
+            if (time > -1.5 && time < 1.5) {
+                const pDist = time * r;
+                const pX_px = cx + (vx * pDist);
+                const pY_px = cy + (vy * pDist);
+
+                ctxTissue.save();
+                ctxTissue.beginPath();
+                ctxTissue.arc(cx, cy, r, 0, 2 * Math.PI);
+                ctxTissue.clip();
+
+                ctxTissue.beginPath();
+                const perpX = -vy * 200;
+                const perpY = vx * 200;
+                
+                ctxTissue.moveTo(pX_px + perpX, pY_px + perpY);
+                ctxTissue.lineTo(pX_px - perpX, pY_px - perpY);
+                ctxTissue.lineTo(cx - vx * 200 - perpX, cy - vy * 200 - perpY);
+                ctxTissue.lineTo(cx - vx * 200 + perpX, cy - vy * 200 + perpY);
+                ctxTissue.fillStyle = '#ef5350';
+                ctxTissue.fill();
+
+                ctxTissue.fillStyle = 'white';
+                ctxTissue.font = 'bold 20px Arial';
+                ctxTissue.textAlign = 'center';
+                ctxTissue.textBaseline = 'middle';
+                ctxTissue.fillText('+', pX_px + (vx*10) + perpX*0.2, pY_px + (vy*10) + perpY*0.2);
+                ctxTissue.fillText('+', pX_px + (vx*10), pY_px + (vy*10));
+                ctxTissue.fillText('+', pX_px + (vx*10) - perpX*0.2, pY_px + (vy*10) - perpY*0.2);
+                
+                ctxTissue.restore();
+            }
+
+            // Electrodo explorador
+            const eRad = parseInt(slider.value) * (Math.PI / 180);
+            const ex = cx + Math.cos(eRad) * (r + 40);
+            const ey = cy + Math.sin(eRad) * (r + 40);
+
+            ctxTissue.beginPath();
+            ctxTissue.arc(ex, ey, 12, 0, 2 * Math.PI);
+            ctxTissue.fillStyle = '#e53e3e';
+            ctxTissue.fill();
+            ctxTissue.strokeStyle = '#c53030';
+            ctxTissue.stroke();
+            
+            ctxTissue.fillStyle = 'white';
+            ctxTissue.beginPath();
+            ctxTissue.arc(ex, ey, 4, 0, 2*Math.PI);
+            ctxTissue.fill();
+        }
+
+        function drawGalvanometer() {
+            ctxGalvano.clearRect(0, 0, 350, 150);
+            const cx = 175, cy = 130, r = 110;
+
+            ctxGalvano.beginPath();
+            ctxGalvano.arc(cx, cy, r, Math.PI, 0);
+            ctxGalvano.lineWidth = 6;
+            ctxGalvano.strokeStyle = '#cbd5e0';
+            ctxGalvano.stroke();
+
+            ctxGalvano.beginPath();
+            ctxGalvano.arc(cx, cy, r, Math.PI, -Math.PI/2);
+            ctxGalvano.strokeStyle = 'rgba(245, 101, 101, 0.4)';
+            ctxGalvano.stroke();
+
+            ctxGalvano.beginPath();
+            ctxGalvano.arc(cx, cy, r, -Math.PI/2, 0);
+            ctxGalvano.strokeStyle = 'rgba(72, 187, 120, 0.4)';
+            ctxGalvano.stroke();
+
+            ctxGalvano.fillStyle = '#4a5568';
+            ctxGalvano.font = "bold 20px Arial";
+            ctxGalvano.fillText("-", cx - r - 20, cy);
+            ctxGalvano.fillText("+", cx + r + 5, cy);
+            ctxGalvano.fillText("0", cx - 5, cy - r - 15);
+
+            const maxAngle = Math.PI / 2.3; 
+            let boundedVoltage = Math.max(-1, Math.min(1, currentVoltage / 1.5));
+            let needleAngle = -Math.PI / 2 + (boundedVoltage * maxAngle);
+
+            ctxGalvano.beginPath();
+            ctxGalvano.moveTo(cx, cy);
+            const nx = cx + Math.cos(needleAngle) * (r + 10);
+            const ny = cy + Math.sin(needleAngle) * (r + 10);
+            ctxGalvano.lineTo(nx, ny);
+            ctxGalvano.lineWidth = 4;
+            ctxGalvano.strokeStyle = '#2d3748';
+            ctxGalvano.stroke();
+
+            ctxGalvano.beginPath();
+            ctxGalvano.arc(cx, cy, 8, 0, 2 * Math.PI);
+            ctxGalvano.fillStyle = '#1a202c';
+            ctxGalvano.fill();
+        }
+
+        function drawWave() {
+            ctxWave.clearRect(0, 0, 350, 150);
+            const cy = 75; // Línea isoeléctrica centrada verticalmente
+
+            // Grilla de fondo
+            ctxWave.strokeStyle = '#fbd38d';
+            ctxWave.lineWidth = 0.5;
+            for(let i=0; i<=350; i+=10) {
+                ctxWave.beginPath(); ctxWave.moveTo(i, 0); ctxWave.lineTo(i, 150); ctxWave.stroke();
+            }
+            for(let i=0; i<=150; i+=10) {
+                ctxWave.beginPath(); ctxWave.moveTo(0, i); ctxWave.lineTo(350, i); ctxWave.stroke();
+            }
+
+            // Línea Isoeléctrica principal
+            ctxWave.strokeStyle = '#dd6b20';
+            ctxWave.lineWidth = 1.5;
+            ctxWave.beginPath();
+            ctxWave.moveTo(0, cy);
+            ctxWave.lineTo(350, cy);
+            ctxWave.stroke();
+
+            // Dibujar trazado acumulado exagerado
+            if (ecgData.length > 0) {
+                ctxWave.beginPath();
+                const stepX = 350 / 100;
+                
+                // Escala Y amplificada
+                const scaleY = 55;
+                
+                ctxWave.moveTo(0, cy - (ecgData[0] * scaleY));
+                
+                for (let i = 1; i < ecgData.length; i++) {
+                    ctxWave.lineTo(i * stepX, cy - (ecgData[i] * scaleY));
+                }
+                
+                ctxWave.lineWidth = 3.5;
+                ctxWave.strokeStyle = '#1a202c';
+                ctxWave.stroke();
+                
+                const lastX = (ecgData.length - 1) * stepX;
+                const lastY = cy - (ecgData[ecgData.length - 1] * scaleY);
+                ctxWave.beginPath();
+                ctxWave.arc(lastX, lastY, 5, 0, 2*Math.PI);
+                ctxWave.fillStyle = '#e53e3e';
+                ctxWave.fill();
+            }
+        }
+
+        function animate() {
+            updatePhysics();
+            drawTissue();
+            drawGalvanometer();
+            drawWave();
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>

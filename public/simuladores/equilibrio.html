@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Equilibrio Humano — Péndulo Invertido (UX + límites fisiológicos)</title>
+  <title>Equilibrio Humano</title>
   <style>
     :root {
       --bg: #0b1020;
@@ -347,12 +347,12 @@
         <fieldset>
           <legend>Control (retroalimentación)</legend>
           <div class="row">
-            <label for="kp">k<sub>p</sub> (ganancia proporcional)</label>
+            <label for="kp">k<sub>p</sub> (Tono)</label>
             <input id="kp" type="range" min="0" max="2000" step="10" value="800">
             <output id="kpOut">800 N·m/rad</output>
           </div>
           <div class="row">
-            <label for="kd">k<sub>d</sub> (ganancia derivativa)</label>
+            <label for="kd">k<sub>d</sub> (Viscosidad muscular)</label>
             <input id="kd" type="range" min="0" max="800" step="5" value="400">
             <output id="kdOut">400 N·m·s/rad</output>
           </div>
@@ -440,7 +440,7 @@
             <button class="btn good" id="btnNudge">Micro-ruido ON</button>
             <button class="btn" id="btnStand">Levantar</button>
           </div>
-          <div class="urlrow">
+          <div class="urlrow" style="display:none">
             <input id="fallImgUrl" placeholder="URL imagen para caída (opcional)" />
             <button class="btn danger" id="btnSetImg">Usar imagen</button>
           </div>
@@ -482,8 +482,8 @@
     </section>
   </main>
 
-  <footer>
-    UX: aside amplio, fieldsets con legend, presets, empujones con tres intensidades y overlay de caída personalizable.
+  <footer class="footer">
+
   </footer>
 
   <script>

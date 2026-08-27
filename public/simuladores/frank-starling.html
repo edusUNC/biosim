@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador del Mecanismo de Frank-Starling</title>
+  <style>
+    :root {
+      --primary-color: #8c2727;
+      --secondary-color: #f7e9e9;
+      --accent-color: #d9a0a0;
+      --text-color: #3d1a1a;
+      --bg-color: #fdfbfb;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      line-height: 1.6;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    .container {
+      max-width: 1000px;
+      width: 100%;
+      background-color: #ffffff;
+      padding: 25px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    h1,
+    h2 {
+      color: var(--primary-color);
+      border-bottom: 2px solid var(--secondary-color);
+      padding-bottom: 10px;
+      text-align: center;
+    }
+
+    .main-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 25px;
+      align-items: flex-start;
+    }
+
+    .controls-results-col {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .visuals-col {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .control-group,
+    .results-grid,
+    .visual-box {
+      background-color: #fff;
+      border: 1px solid #eee;
+      padding: 20px;
+      border-radius: 8px;
+    }
+
+    label {
+      font-weight: bold;
+      display: block;
+      margin-bottom: 10px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      cursor: pointer;
+    }
+
+    .results-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+
+    .result-group {
+      text-align: center;
+    }
+
+    .result-label {
+      font-weight: bold;
+      font-size: 0.9em;
+    }
+
+    .value-display {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: var(--primary-color);
+    }
+
+    .visual-box h3 {
+      margin-top: 0;
+      text-align: center;
+      color: var(--primary-color);
+    }
+
+    /* Heart Animation */
+    .heart-container {
+      height: 180px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #heart {
+      width: 100px;
+      height: 100px;
+      transition: transform 0.4s ease-in-out;
+      animation-iteration-count: infinite;
+    }
+
+    @keyframes beat {
+      0% {
+        transform-origin: center;
+      }
+
+      50% {
+        transform: scale(var(--systolic-scale));
+        transform-origin: center;
+      }
+
+      100% {
+        transform-origin: center;
+      }
+    }
+
+    /* Sarcomere Diagram */
+    .sarcomere-container {
+      height: 120px;
+      background-color: var(--secondary-color);
+      border-radius: 5px;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--accent-color);
+    }
+
+    .myosin-filament {
+      position: absolute;
+      width: 80%;
+      height: 20px;
+      background-color: var(--primary-color);
+      border-radius: 10px;
+      top: 50%;
+      left: 10%;
+      transform: translateY(-50%);
+    }
+
+    .actin-filament {
+      position: absolute;
+      width: 45%;
+      height: 10px;
+      background-color: var(--accent-color);
+      border-radius: 5px;
+      top: 50%;
+      transform: translateY(-50%);
+      transition: left 0.3s ease;
+    }
+
+    #actin-left {
+      left: -5%;
+    }
+
+    #actin-right {
+      left: 60%;
+    }
+
+    /* Explanation */
+    .explanation {
+      grid-column: 1 / -1;
+      margin-top: 20px;
+    }
+
+    .explanation strong {
+      color: var(--primary-color);
+    }
+
+    @media (max-width: 850px) {
+      .main-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <h1>Simulador: Mecanismo de Frank-Starling</h1>
+    <p style="text-align: center;">Una demostración visual de cómo el estiramiento del corazón determina su fuerza de
+      contracción.</p>
+
+    <div class="main-layout">
+      <div class="controls-results-col">
+        <div class="control-group">
+          <label for="preload-slider">Precarga / Llenado Ventricular: <span id="preload-value">120</span> mL</label>
+          <input type="range" id="preload-slider" min="70" max="180" step="1" value="120">
+        </div>
+        <div class="results-grid">
+          <div class="result-group">
+            <div class="result-label">Fuerza Contráctil</div>
+            <div class="value-display" id="force-value">... %</div>
+          </div>
+          <div class="result-group">
+            <div class="result-label">Vol. Sistólico</div>
+            <div class="value-display" id="sv-value">... mL</div>
+          </div>
+          <div class="result-group">
+            <div class="result-label">Gasto Cardíaco</div>
+            <div class="value-display" id="co-value">... L/min</div>
+          </div>
+        </div>
+        <div class="visual-box">
+          <h3>Nivel Microscópico: Sarcómero</h3>
+          <div class="sarcomere-container">
+            <div class="myosin-filament"></div>
+            <div id="actin-left" class="actin-filament"></div>
+            <div id="actin-right" class="actin-filament"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="visuals-col">
+        <div class="visual-box">
+          <h3>Nivel Macroscópico: Corazón</h3>
+          <div class="heart-container">
+            <svg id="heart" viewBox="0 0 100 100" style="--systolic-scale: 0.9;">
+              <path d="M 50,90 C 10,50 30,20 50,40 C 70,20 90,50 50,90 Z" fill="#c74242" />
+            </svg>
+          </div>
+        </div>
+        <div class="visual-box">
+          <h3>Gráfico de Rendimiento</h3>
+          <svg id="starling-graph" width="100%" height="200" viewBox="0 0 400 200"></svg>
+        </div>
+      </div>
+
+      <div class="explanation">
+        <h2>¿Cómo funciona la Ley de Frank-Starling?</h2>
+        <p>Esta ley es un mecanismo intrínseco del corazón que le permite adaptarse a cambios en el volumen de sangre
+          que recibe. Es como una goma elástica: <strong>a mayor estiramiento, mayor fuerza de retroceso.</strong></p>
+        <ol>
+          <li><strong>Aumenta la Precarga:</strong> Cuando más sangre regresa al corazón (aumento del retorno venoso),
+            el ventrículo se llena más y sus paredes se estiran. En el simulador, esto lo controlas con el deslizador.
+          </li>
+          <li><strong>Estiramiento del Sarcómero:</strong> A nivel microscópico, este estiramiento optimiza la
+            alineación de los filamentos de <strong>actina y miosina</strong>. Esto permite que se formen más "puentes
+            cruzados" entre ellos durante la contracción.</li>
+          <li><strong>Aumento de la Fuerza Contráctil:</strong> Más puentes cruzados generan una contracción muscular
+            mucho más fuerte. Visualmente, el corazón late con más vigor.</li>
+          <li><strong>Mayor Volumen Sistólico:</strong> Al contraerse con más fuerza, el corazón expulsa un mayor
+            volumen de sangre en cada latido (aumento del Volumen Sistólico), asegurando que el exceso de sangre que
+            entró, también salga.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- DOM Elements ---
+    const preloadSlider = document.getElementById('preload-slider');
+    const preloadValue = document.getElementById('preload-value');
+    const forceValue = document.getElementById('force-value');
+    const svValue = document.getElementById('sv-value');
+    const coValue = document.getElementById('co-value');
+    const heart = document.getElementById('heart');
+    const actinLeft = document.getElementById('actin-left');
+    const actinRight = document.getElementById('actin-right');
+    const starlingGraph = document.getElementById('starling-graph');
+
+    // --- Physiological Constants & Model ---
+    const MIN_PRELOAD = 70, MAX_PRELOAD = 180;
+    const MIN_SV = 40, MAX_SV = 110;
+    const HEART_RATE = 70; // Constant heart rate in bpm
+
+    // A function to model the Frank-Starling curve (non-linear relationship)
+    function calculateSV(preload) {
+      const normalizedPreload = (preload - MIN_PRELOAD) / (MAX_PRELOAD - MIN_PRELOAD);
+      // Using a sigmoid-like curve for a realistic relationship
+      const sv = MIN_SV + (MAX_SV - MIN_SV) * (1 / (1 + Math.exp(-10 * (normalizedPreload - 0.5))));
+      return sv;
+    }
+
+    // --- SVG & Graphing ---
+    const SVG_W = 400, SVG_H = 200, PADDING = 30;
+
+    function mapToGraph(preload, sv) {
+      const x = PADDING + ((preload - MIN_PRELOAD) / (MAX_PRELOAD - MIN_PRELOAD)) * (SVG_W - 2 * PADDING);
+      const y = (SVG_H - PADDING) - ((sv - MIN_SV) / (MAX_SV - MIN_SV)) * (SVG_H - 2 * PADDING);
+      return { x, y };
+    }
+
+    function initializeGraph() {
+      starlingGraph.innerHTML = ''; // Clear previous
+      starlingGraph.innerHTML += `<line x1="${PADDING}" y1="${SVG_H - PADDING}" x2="${SVG_W - PADDING}" y2="${SVG_H - PADDING}" stroke="#ccc" stroke-width="2"/>`;
+      starlingGraph.innerHTML += `<line x1="${PADDING}" y1="${PADDING}" x2="${PADDING}" y2="${SVG_H - PADDING}" stroke="#ccc" stroke-width="2"/>`;
+      starlingGraph.innerHTML += `<text x="${SVG_W / 2}" y="${SVG_H - 5}" text-anchor="middle" font-size="12" fill="#666">Precarga / Llenado (mL)</text>`;
+      starlingGraph.innerHTML += `<text x="${-SVG_H / 2}" y="12" text-anchor="middle" font-size="12" fill="#666" transform="rotate(-90)">Volumen Sistólico (mL)</text>`;
+
+      let pathData = "M";
+      for (let p = MIN_PRELOAD; p <= MAX_PRELOAD; p++) {
+        const sv = calculateSV(p);
+        const { x, y } = mapToGraph(p, sv);
+        pathData += (p === MIN_PRELOAD ? '' : ' L') + `${x},${y}`;
+      }
+      starlingGraph.innerHTML += `<path d="${pathData}" fill="none" stroke="${'var(--primary-color)'}" stroke-width="3"/>`;
+      starlingGraph.innerHTML += `<circle id="graph-point" r="6" fill="${'var(--accent-color)'}" stroke="white" stroke-width="2"/>`;
+    }
+
+    // --- Main Update Function ---
+    function updateSimulator() {
+      const preload = parseInt(preloadSlider.value);
+      const sv = calculateSV(preload);
+      const force = ((sv - MIN_SV) / (MAX_SV - MIN_SV)) * 100;
+      const co = (sv * HEART_RATE) / 1000;
+
+      // 1. Update text values
+      preloadValue.textContent = preload;
+      forceValue.textContent = force.toFixed(0) + ' %';
+      svValue.textContent = sv.toFixed(0) + ' mL';
+      coValue.textContent = co.toFixed(2) + ' L/min';
+
+      // 2. Update heart visualization
+      const diastolicScale = 0.8 + 0.4 * ((preload - MIN_PRELOAD) / (MAX_PRELOAD - MIN_PRELOAD));
+      const systolicScale = diastolicScale * (1 - 0.1 - (0.15 * (force / 100)));
+      heart.style.transform = `scale(${diastolicScale})`;
+      heart.style.setProperty('--systolic-scale', systolicScale / diastolicScale);
+
+      // 3. Update sarcomere visualization
+      const actinOffset = -15 + 20 * ((preload - MIN_PRELOAD) / (MAX_PRELOAD - MIN_PRELOAD));
+      actinLeft.style.left = `${actinOffset}%`;
+      actinRight.style.left = `${100 - 45 - actinOffset}%`;
+
+      // 4. Update graph point
+      const { x, y } = mapToGraph(preload, sv);
+      document.getElementById('graph-point').setAttribute('cx', x);
+      document.getElementById('graph-point').setAttribute('cy', y);
+    }
+
+    // --- Initializers ---
+    preloadSlider.addEventListener('input', updateSimulator);
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initializeGraph();
+      updateSimulator();
+      // Set continuous animation for the heart beat
+      heart.style.animation = `beat 1s ease-in-out infinite`;
+      heart.style.animationDuration = `${60 / HEART_RATE}s`;
+    });
+
+  </script>
+
+</body>
+
+</html>
