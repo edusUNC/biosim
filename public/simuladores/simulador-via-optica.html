@@ -389,6 +389,27 @@
     .btn:hover { background: var(--primary-dark); }
     .btn:disabled { opacity: .45; cursor: not-allowed; }
 
+    /* ---------- Vista 3D ---------- */
+    .topbar-acciones { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+    .btn-3d { width: auto; border-radius: 999px; padding: .5rem 1.1rem; box-shadow: var(--shadow); }
+    .dlg-3d {
+      width: calc(100vw - 2rem); height: calc(100vh - 2rem); max-width: none; max-height: none;
+      padding: 0; border: 0; border-radius: 14px; overflow: hidden; background: #0f1420;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, .45);
+    }
+    .dlg-3d[open] { display: flex; flex-direction: column; }
+    .dlg-3d::backdrop { background: rgba(10, 16, 26, .6); }
+    .dlg-bar {
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+      padding: .55rem .6rem .55rem 1rem; background: #16202e; color: #e6ebf5; font-size: .9rem;
+    }
+    .dlg-bar button {
+      appearance: none; font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer;
+      border: 0; border-radius: 8px; padding: .35rem .8rem; background: #2a3650; color: #e6ebf5;
+    }
+    .dlg-bar button:hover { background: #3a4a6d; }
+    .dlg-3d iframe { flex: 1; width: 100%; border: 0; display: block; }
+
     /* ---------- SVG ---------- */
     .estructura { fill: #e8edf4; stroke: #94a3b4; stroke-width: 1.4; }
     .estructura-txt { font-size: 11px; fill: #43526a; text-anchor: middle; dominant-baseline: middle; font-weight: 600; }
@@ -462,9 +483,12 @@
         <p>Elegí un nivel de lesión y seguí el recorrido de la señal: qué campo se pierde, sobre qué hemirretina
           incidía y en qué punto se interrumpe el haz.</p>
       </div>
-      <div class="segmented" role="group" aria-label="Modo">
-        <button type="button" id="btn-practica" aria-pressed="true">Práctica</button>
-        <button type="button" id="btn-examen" aria-pressed="false">Examen</button>
+      <div class="topbar-acciones">
+        <button type="button" class="btn btn-3d" id="btn-3d">Ver en 3D</button>
+        <div class="segmented" role="group" aria-label="Modo">
+          <button type="button" id="btn-practica" aria-pressed="true">Práctica</button>
+          <button type="button" id="btn-examen" aria-pressed="false">Examen</button>
+        </div>
       </div>
     </div>
 
@@ -593,6 +617,14 @@
       </ul>
     </details>
   </div>
+
+  <dialog class="dlg-3d" id="dlg-3d" aria-label="Vía óptica en 3D">
+    <div class="dlg-bar">
+      <b>Vía óptica en 3D</b>
+      <button type="button" id="btn-cerrar-3d">Cerrar</button>
+    </div>
+    <iframe id="frame-3d" title="Vía óptica en 3D"></iframe>
+  </dialog>
 
   <script>
     (() => {
@@ -1366,6 +1398,18 @@
         document.getElementById('bino-texto').textContent = v.t;
         document.getElementById('bino-veredicto').className = `bino-veredicto ${v.tono}`;
 
+        estado3d = {
+          type: 'via-optica:estado',
+          lesion: les && !ocultarRespuesta
+            ? { id: les.id, zona: les.zona, defecto: les.defecto, cortes: les.cortes }
+            : null,
+          campo: { L: [...estado.campo.L], R: [...estado.campo.R] },
+          macular, examen, ocultar: ocultarRespuesta,
+          vineta: examen ? dom.vineta.textContent : null,
+          feedback: examen && !ocultarRespuesta ? dom.feedback.textContent : null
+        };
+        enviar3D(estado3d);
+
         dom.body.classList.toggle('previsualizando', preview);
         if (!examen) pintarFicha(ocultarRespuesta ? null : les);
 
@@ -1501,6 +1545,46 @@
       }
       $('btn-esquema').addEventListener('click', () => setVistaBino(false));
       $('btn-escena').addEventListener('click', () => setVistaBino(true));
+
+      // --- Vista 3D ---
+      // La escena 3D vive en su propia página (three.js se carga solo si se abre). Recibe el mismo
+      // estado que pinta el 2D, así ambas vistas nunca se contradicen.
+      const dlg3d = $('dlg-3d'), frame3d = $('frame-3d');
+      let estado3d = null, listo3d = false;
+
+      function enviar3D(msg) {
+        if (listo3d && dlg3d.open) frame3d.contentWindow.postMessage(msg, '*');
+      }
+
+      function escena3D() {
+        const ser = new XMLSerializer();
+        return `<svg xmlns="${NS}" viewBox="78 16 404 226" width="808" height="452">`
+          + `<defs>${ser.serializeToString(gradCielo)}</defs>${ser.serializeToString(escena())}</svg>`;
+      }
+
+      $('btn-3d').addEventListener('click', () => {
+        if (!frame3d.getAttribute('src')) frame3d.setAttribute('src', 'via-optica-3d.html');
+        dlg3d.showModal();
+        enviar3D(estado3d);
+      });
+      $('btn-cerrar-3d').addEventListener('click', () => dlg3d.close());
+
+      window.addEventListener('message', e => {
+        if (e.source !== frame3d.contentWindow || !e.data) return;
+        if (e.data.type === 'via-optica:listo') {
+          listo3d = true;
+          enviar3D({ type: 'via-optica:escena', svg: escena3D(), B: { fx: B.fx, fy: B.fy, rx: B.rx, ry: B.ry, dx: B.dx } });
+          enviar3D(estado3d);
+        } else if (e.data.type === 'via-optica:elegir') {
+          const id = e.data.id;
+          if (id === null) { if (!examen) seleccionar(null); }
+          else if (buscar(id)) examen ? responder(id) : seleccionar(id);
+        } else if (e.data.type === 'via-optica:siguiente') {
+          if (examen && respondida) siguientePregunta();
+        } else if (e.data.type === 'via-optica:cerrar') {
+          dlg3d.close();
+        }
+      });
 
       // --- Arranque ---
       render(null, { animar: false });
