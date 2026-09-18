@@ -165,21 +165,22 @@ export const simuladores: Simulador[] = [
   {
     id: "simulador-via-optica",
     nombre: "Simulador de Lesiones en la Vía Óptica",
-    descripcion: "Simulador didáctico que muestra los defectos del campo visual resultantes de lesiones en puntos clave de la vía óptica, desde el nervio óptico hasta la corteza visual.",
+    descripcion: "Simulador interactivo que muestra los defectos del campo visual producidos por lesiones en nueve puntos de la vía óptica, desde el nervio óptico hasta la corteza occipital, con el campo binocular superpuesto y una escena que muestra lo que percibe el paciente.",
     categoria: "Neurofisiología",
-    objetivo: "Identificar y correlacionar la ubicación de una lesión neuroanatómica con el patrón de pérdida del campo visual resultante (hemianopsia, cuadrantanopsia).",
+    objetivo: "Identificar y correlacionar la ubicación de una lesión neuroanatómica con el patrón de pérdida del campo visual resultante (hemianopsia, cuadrantanopsia, escotoma juncional) y su repercusión en la visión binocular.",
     archivo: "simulador-via-optica.html",
     instrucciones: [
-      "Selecciona un número de lesión usando los controles del panel izquierdo o haciendo clic directamente en los puntos numerados del diagrama.",
-      "Observa el patrón de pérdida de campo visual (zonas oscuras) que aparece en los círculos de la derecha.",
-      "Lee el nombre y la descripción del defecto del campo visual que se muestra debajo de los círculos.",
-      "Utiliza el botón 'Restablecer a Visión Normal' para limpiar la selección y volver al estado fisiológico de referencia."
+      "Elegí una lesión en el riel de chips o haciendo clic en los puntos numerados del diagrama (también podés usar las teclas 1–9; 0 restablece). Pasá el cursor por un punto para previsualizar el defecto.",
+      "Seguí el pulso de la señal: viaja del campo a la retina y por las fibras, y se apaga en el punto del corte.",
+      "Compará la campimetría de cada ojo con el campo binocular superpuesto. Activá la vista 'Escena' para ver cómo percibe el paciente una escena real.",
+      "Leé en la ficha el nombre del defecto, el nivel de la lesión, el DPAR y las causas típicas.",
+      "En el modo Examen, resolvé casos clínicos: mirá el defecto y elegí la lesión que lo explica."
     ],
     requisitos: [
       "Conocimiento básico de la anatomía del sistema nervioso central.",
       "Comprensión del concepto de campo visual y proyección retiniana."
     ],
-    tiempoEstimado: "5–10 minutos"
+    tiempoEstimado: "10–20 minutos"
   },
   {
     id: 'dipolo4',
