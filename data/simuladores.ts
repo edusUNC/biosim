@@ -174,6 +174,7 @@ export const simuladores: Simulador[] = [
       "Seguí el pulso de la señal: viaja del campo a la retina y por las fibras, y se apaga en el punto del corte.",
       "Compará la campimetría de cada ojo con el campo binocular superpuesto. Activá la vista 'Escena' para ver cómo percibe el paciente una escena real.",
       "Leé en la ficha el nombre del defecto, el nivel de la lesión, el DPAR y las causas típicas.",
+      "Con 'Ver en 3D' recorré la vía en tres dimensiones y mirá la escena desde los ojos del paciente; también podés elegir la lesión haciendo clic en los números.",
       "En el modo Examen, resolvé casos clínicos: mirá el defecto y elegí la lesión que lo explica."
     ],
     requisitos: [
