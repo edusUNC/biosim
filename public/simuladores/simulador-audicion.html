@@ -585,6 +585,44 @@
     .explicacion li { margin-bottom: .45rem; }
     .formula { font-family: var(--mono); font-size: .82rem; background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: .05rem .35rem; }
 
+    /* ---------- Tira de ondas ---------- */
+    .ondas-card { padding: .85rem 1.1rem 1rem; margin-bottom: 1.1rem; }
+    .ondas-head { display: flex; justify-content: space-between; align-items: baseline; gap: .75rem; flex-wrap: wrap; margin-bottom: .6rem; }
+    .ondas-head h2 { margin: 0; font-size: 1rem; letter-spacing: -.01em; }
+    .ondas-head .hint { font-size: .78rem; color: var(--ink-soft); }
+    .ondas-head .hint i { display: inline-block; width: 16px; border-top: 2px dashed #aab5c3; vertical-align: middle; margin: 0 .25rem; }
+
+    .ondas-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr) 18px minmax(0, 1fr) 18px minmax(0, 1fr);
+      gap: .35rem;
+      align-items: stretch;
+    }
+
+    @media (max-width: 900px) {
+      .ondas-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .6rem; }
+      .onda-flecha { display: none; }
+    }
+
+    .onda-paso {
+      margin: 0;
+      border: 1px solid var(--line);
+      border-top: 3px solid var(--c, var(--primary));
+      border-radius: 10px;
+      background: var(--surface-2);
+      padding: .5rem .6rem .55rem;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .onda-paso .paso-t { font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; font-weight: 700; color: var(--ink-soft); }
+    .onda-paso .paso-n { font-size: .92rem; font-weight: 700; letter-spacing: -.01em; margin-top: .05rem; }
+    .onda-paso canvas { width: 100%; height: 84px; display: block; margin: .35rem 0 .35rem; border-radius: 7px; background: #fff; border: 1px solid #e8edf3; }
+    .onda-paso .val { font-family: var(--mono); font-size: .8rem; font-weight: 700; color: var(--c, var(--primary)); }
+    .onda-paso p { margin: .1rem 0 0; font-size: .74rem; color: var(--ink-soft); line-height: 1.4; }
+    .onda-flecha { align-self: center; justify-self: center; color: #9fadbd; font-size: 1.15rem; font-weight: 700; }
+
     /* ---------- Modo básico ---------- */
     body.modo-basico .solo-completo { display: none !important; }
     body.modo-basico .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -666,8 +704,8 @@
             <div class="ctrl-head"><label for="in-nivel">Nivel</label><output id="out-nivel"></output></div>
             <input type="range" id="in-nivel" min="30" max="120" step="1" value="70">
           </div>
-          <div class="ctrl solo-completo">
-            <div class="ctrl-head"><label for="in-freq">Frecuencia analizada</label><output id="out-freq"></output></div>
+          <div class="ctrl">
+            <div class="ctrl-head"><label for="in-freq">Frecuencia</label><output id="out-freq"></output></div>
             <input type="range" id="in-freq" min="0" max="1000" step="1" value="500">
             <div class="ctrl-sub" id="sub-freq"></div>
           </div>
@@ -746,6 +784,46 @@
         </div>
       </aside>
     </div>
+
+    <section class="card ondas-card" aria-label="Amplitud de la onda en cada paso">
+      <div class="ondas-head">
+        <h2>Cómo cambia la onda en cada paso</h2>
+        <span class="hint" id="ondas-hint">La línea<i></i>punteada es el oído normal, para comparar</span>
+      </div>
+      <div class="ondas-grid">
+        <figure class="onda-paso" style="--c:#2a8fd6">
+          <div class="paso-t">1 · Conducto</div>
+          <div class="paso-n">Llega al tímpano</div>
+          <canvas id="cv-onda-1" aria-hidden="true"></canvas>
+          <span class="val" id="op-1"></span>
+          <p id="op-1-d">Onda de presión en el aire.</p>
+        </figure>
+        <div class="onda-flecha">→</div>
+        <figure class="onda-paso" style="--c:#e07b2a">
+          <div class="paso-t">2 · Tímpano</div>
+          <div class="paso-n">Parte rebota</div>
+          <canvas id="cv-onda-2" aria-hidden="true"></canvas>
+          <span class="val" id="op-2"></span>
+          <p id="op-2-d"></p>
+        </figure>
+        <div class="onda-flecha">→</div>
+        <figure class="onda-paso" style="--c:#7c4dcc">
+          <div class="paso-t">3 · Huesecillos</div>
+          <div class="paso-n">La presión se concentra</div>
+          <canvas id="cv-onda-3" aria-hidden="true"></canvas>
+          <span class="val" id="op-3"></span>
+          <p id="op-3-d"></p>
+        </figure>
+        <div class="onda-flecha">→</div>
+        <figure class="onda-paso" style="--c:#0f8a7a">
+          <div class="paso-t">4 · Cóclea</div>
+          <div class="paso-n">Lo que entra al líquido</div>
+          <canvas id="cv-onda-4" aria-hidden="true"></canvas>
+          <span class="val" id="op-4"></span>
+          <p id="op-4-d"></p>
+        </figure>
+      </div>
+    </section>
 
     <div class="kpis">
       <div class="card kpi solo-completo" id="kpi-N"><div class="k">Ganancia de presión</div><div class="v" id="v-N">—</div><div class="s" id="s-N"></div></div>
@@ -995,6 +1073,7 @@
     }
     function fmtPct(t) {
       const p = t * 100;
+      if (p >= 99 && p < 100) return fmt(Math.floor(p * 10) / 10, 1);
       if (p >= 10) return fmt(p, 0);
       if (p >= 1) return fmt(p, 1);
       if (p >= 0.1) return fmt(p, 2);
@@ -1699,12 +1778,12 @@
               const m = incidentes[i];
               m.position.set(x, -0.2, 0);
               m.scale.setScalar(Math.max(.5, radio * 0.92));
-              m.material.opacity = 0.2 * nivelF * (0.4 + 0.6 * Math.sin(u * Math.PI));
+              m.material.opacity = 0.32 * nivelF * (0.4 + 0.6 * Math.sin(u * Math.PI));
               const r = reflejadas[i];
               const xr = x1 - u * (x1 - x0);
               r.position.set(xr, -0.2, 0);
               r.scale.setScalar(Math.max(.5, (4.6 - 0.8 * (1 - u)) * 0.8));
-              r.material.opacity = 0.22 * R * nivelF * Math.sin(u * Math.PI);
+              r.material.opacity = 0.36 * R * nivelF * Math.sin(u * Math.PI);
             }
           }
 
@@ -1794,7 +1873,7 @@
     /* ---------- Modo básico / completo ---------- */
     let modo = 'basico';
     try { if (localStorage.getItem('audicion-modo') === 'completo') modo = 'completo'; } catch (_) { }
-    const PARAMS_AVANZADOS = ['freqV', 'conducto', 'platina', 'palanca', 'rigidezV', 'masaV'];
+    const PARAMS_AVANZADOS = ['conducto', 'platina', 'palanca', 'rigidezV', 'masaV'];
 
     function setModo(m, inicial = false) {
       modo = m;
@@ -2098,10 +2177,115 @@
       tx.textContent = `${fmtSigned(calc.total)} dB`;
     }
 
+    /* ---------- Tira de ondas ---------- */
+    // Amplitudes relativas (1 = media altura del gráfico)
+    function amplitudesOndas(c, s) {
+      const entrada = 0.3 + 0.55 * Math.min(1, Math.max(0, (s.nivel - 30) / 90));
+      const rebote = entrada * Math.sqrt(Math.max(0, 1 - c.T));
+      const presion = Math.min(0.97, entrada * (1 + Math.log10(Math.max(1, c.a.N)) * 0.55));
+      const coclea = Math.min(0.97, entrada * 0.95 * Math.pow(10, c.curva(c.f) / 20));
+      return { entrada, rebote, presion, coclea };
+    }
+
+    function renderOndasTexto() {
+      const c = calc, s = state;
+      const n = CALC_NORMAL;
+      $('ondas-hint').innerHTML = `A ${fmtHz(c.f)} y ${s.nivel} dB SPL · la línea<i></i>punteada es el oído normal`;
+      $('op-1').textContent = '100 %';
+      $('op-1-d').textContent = 'Toda la energía del sonido llega por el aire hasta el tímpano.';
+      $('op-2').textContent = `rebota el ${fmtPct(1 - c.T)} %`;
+      $('op-2-d').textContent = c.T < 0.01
+        ? 'Casi todo vuelve: el aire “choca” contra un líquido de impedancia enorme.'
+        : `El oído normal refleja el ${fmtPct(1 - n.T)} %. Cuanto mejor la adaptación, menos rebota.`;
+      $('op-3').textContent = `presión ×${fmt(c.a.N, 1)}`;
+      $('op-3-d').textContent = c.a.N < 1.05
+        ? 'Sin cadena no hay transformador: la presión no se amplifica.'
+        : `Tímpano grande → platina chica${c.a.palanca > 1 ? ' + palanca' : ''}. Normal: ×${fmt(n.a.N, 1)}.`;
+      const dif = c.curva(c.f) - n.curva(c.f);
+      $('op-4').textContent = Math.abs(dif) < 0.5 ? 'igual al normal' : `${fmtSigned(dif)} dB vs. normal`;
+      const extras = [];
+      if (c.reflejo) extras.push('el reflejo estapedial la achica');
+      if (c.gAct) extras.push('el implante le suma energía');
+      $('op-4-d').textContent = extras.length
+        ? `Entra el ${fmtPct(c.T)} % de la energía; además ${extras.join(' y ')}.`
+        : `Entra el ${fmtPct(c.T)} % de la energía (sin oído medio: ${fmtPct(T_DIRECTA)} %).`;
+    }
+
+    const ondasAnim = (() => {
+      const cvs = [1, 2, 3, 4].map(i => $('cv-onda-' + i));
+      let fase = 0, prev = performance.now();
+      const COL = ['#2a8fd6', '#e07b2a', '#7c4dcc', '#0f8a7a'];
+
+      function onda(g, w, h, amp, ciclos, dir, color, dash, ancho) {
+        g.save();
+        g.strokeStyle = color;
+        g.lineWidth = ancho;
+        g.setLineDash(dash);
+        g.beginPath();
+        const mitad = h / 2, A = amp * (mitad - 5);
+        for (let x = 0; x <= w; x += 2) {
+          const y = mitad - A * Math.sin((x / w) * ciclos * Math.PI * 2 - dir * fase);
+          x ? g.lineTo(x, y) : g.moveTo(x, y);
+        }
+        g.stroke();
+        g.restore();
+      }
+
+      function flecha(g, w, h, dir, color) {
+        const y = 10, x = dir > 0 ? w - 12 : 12;
+        g.save();
+        g.fillStyle = color;
+        g.globalAlpha = .7;
+        g.beginPath();
+        g.moveTo(x + dir * 6, y);
+        g.lineTo(x - dir * 2, y - 4.5);
+        g.lineTo(x - dir * 2, y + 4.5);
+        g.fill();
+        g.restore();
+      }
+
+      function frame(t) {
+        const dt = Math.min(0.05, (t - prev) / 1000);
+        prev = t;
+        fase += dt * Math.PI * 2 * 0.7;
+        const a = amplitudesOndas(calc, state);
+        const an = amplitudesOndas(CALC_NORMAL, { ...NORMAL, nivel: state.nivel, freqV: state.freqV });
+        const nNorm = CALC_NORMAL.curva(calc.f);
+        an.coclea = Math.min(0.97, an.entrada * 0.95 * Math.pow(10, nNorm / 20));
+        const ciclos = 1.2 + Math.log2(calc.f / 125) * 0.5;
+        const dpr = Math.min(2, devicePixelRatio);
+        const series = [
+          [[a.entrada, 1, COL[0]]],
+          [[an.rebote, -1, null], [a.rebote, -1, COL[1]]],
+          [[an.presion, 1, null], [a.presion, 1, COL[2]]],
+          [[an.coclea, 1, null], [a.coclea, 1, COL[3]]],
+        ];
+        cvs.forEach((cv, i) => {
+          const w = cv.clientWidth, h = cv.clientHeight;
+          if (!w) return;
+          if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+          const g = cv.getContext('2d');
+          g.setTransform(dpr, 0, 0, dpr, 0, 0);
+          g.clearRect(0, 0, w, h);
+          g.strokeStyle = '#e3e9f0';
+          g.lineWidth = 1;
+          g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
+          for (const [amp, dir, color] of series[i]) {
+            if (color) onda(g, w, h, amp, ciclos, dir, color, [], 2.4);
+            else onda(g, w, h, amp, ciclos, dir, '#aab5c3', [4, 4], 1.4);
+          }
+          flecha(g, w, h, series[i][series[i].length - 1][1], COL[i]);
+        });
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    })();
+
     function update() {
       calc = calcular(state);
       document.querySelectorAll('#rail .chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.caso === presetActivo)));
       renderPanel();
+      renderOndasTexto();
       renderMatch();
       renderBudget();
       renderFreq();
