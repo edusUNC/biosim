@@ -585,6 +585,27 @@
     .explicacion li { margin-bottom: .45rem; }
     .formula { font-family: var(--mono); font-size: .82rem; background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: .05rem .35rem; }
 
+    /* ---------- Osciloscopios en la escena ---------- */
+    .scope3d {
+      width: 186px;
+      background: rgba(255, 255, 255, .95);
+      border: 1px solid var(--line);
+      border-top: 3px solid var(--c, var(--primary));
+      border-radius: 9px;
+      box-shadow: 0 2px 10px rgba(16, 26, 38, .14);
+      padding: .32rem .42rem .36rem;
+      backdrop-filter: blur(6px);
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .scope3d b { display: block; font-size: .68rem; font-weight: 700; letter-spacing: -.01em; color: var(--ink); }
+    .scope3d canvas { width: 100%; height: 58px; display: block; margin: .2rem 0 .18rem; }
+    .scope3d .num { display: flex; justify-content: space-between; gap: .3rem; font-family: var(--mono); font-size: .64rem; font-weight: 700; color: var(--ink-soft); }
+    .scope3d .num .p { color: var(--c, var(--primary)); }
+    .scope3d .leyenda { font-size: .62rem; color: var(--ink-faint); margin-top: .12rem; }
+    body.sin-graficos .scope3d { display: none !important; }
+
     /* ---------- Tira de ondas ---------- */
     .ondas-card { padding: .85rem 1.1rem 1rem; margin-bottom: 1.1rem; }
     .ondas-head { display: flex; justify-content: space-between; align-items: baseline; gap: .75rem; flex-wrap: wrap; margin-bottom: .6rem; }
@@ -682,6 +703,8 @@
             <button type="button" class="pill-toggle solo-completo" id="tg-lento" aria-pressed="true">Cámara lenta</button>
           </div>
           <div class="toggles">
+            <button type="button" class="pill-toggle" id="tg-graficos" aria-pressed="false">Gráficos</button>
+            <button type="button" class="pill-toggle" id="tg-escala" aria-pressed="true" hidden>Escala común</button>
             <button type="button" class="pill-toggle solo-completo" id="tg-giro" aria-pressed="false">Girar</button>
           </div>
         </div>
@@ -917,6 +940,15 @@
         <li><b>Implantes:</b> una prótesis pasiva (TORP) reemplaza la cadena por un vástago de titanio entre tímpano y
           platina: recupera la relación de áreas pero sin palanca y con acople imperfecto. Un implante activo agrega
           energía: un transductor electromagnético vibra sobre la cadena, así que puede superar al oído normal.</li>
+        <li><b>Los osciloscopios (botón “Gráficos”):</b> muestran presión (línea llena) y velocidad de volumen
+          (punteada), normalizadas a la onda incidente; la potencia es el producto p·u. En el tímpano la presión casi
+          se duplica porque la onda reflejada se suma en fase, pero la potencia ya cayó: la presión sola no dice
+          cuánta energía entra. Entre el tímpano y la platina p se multiplica por N y u se divide por N, así que la
+          potencia se conserva: eso es el transformador. Con “Escala común” la referencia es el oído normal en las
+          mismas condiciones, y la traza gris de cada panel es esa referencia.</li>
+        <li><b>Reflejo y osciloscopios:</b> acá el reflejo se modela como pérdida de transmisión de la cadena, aguas
+          abajo del tímpano, así que los paneles 1 y 2 no cambian. En la realidad la contracción también modifica la
+          impedancia vista desde el conducto, y eso es justamente lo que mide la impedanciometría.</li>
         <li><b>Simplificaciones:</b> es un modelo docente. La ganancia real del oído medio depende de la frecuencia y
           ronda 20–25 dB; la curvatura del tímpano (efecto catenaria) y la resonancia del oído externo se representan
           de forma aproximada.</li>
@@ -1039,6 +1071,24 @@
       const total = curva(f);
 
       return { a, k, m, aten, kRef, T, gAct, base, curva, mecanica, f, presupuesto, total, reflejo: aten > 0 };
+    }
+
+    /* Amplitudes a lo largo del trayecto, normalizadas a la onda incidente.
+       p = presión, u = velocidad de volumen; la potencia p·u se conserva a los dos lados
+       del transformador salvo pérdidas. */
+    function trayecto(c, s) {
+      const N = Math.max(1e-6, c.a.N);
+      const Zin = Z_COCLEA / (N * N);
+      const R = (Zin - Z_AIRE) / (Zin + Z_AIRE);          // coeficiente de reflexión en presión
+      const cCanal = Math.pow(10, resonanciaConducto(c.f, s.conducto) / 20);
+      const h = Math.pow(10, c.mecanica(c.f) / 20);       // rigidez, masa y reflejo
+      const v = Math.pow(10, c.a.ventanas / 20);          // cancelación entre ventanas
+      const g = Math.pow(10, c.gAct / 20);                // implante activo
+      const p = [1, (1 + R) * cCanal];
+      const u = [1, (1 - R) * cCanal];
+      p.push(p[1] * N * h * v * g);
+      u.push(u[1] / N * h * v * g);
+      return { R, p, u, pPa: 2e-5 * Math.pow(10, s.nivel / 20), pot: p.map((pi, i) => pi * u[i]) };
     }
 
     const CALC_NORMAL = calcular(NORMAL);
@@ -1582,6 +1632,110 @@
       etFuerzaPlatina.element.style.color = '#c25f12';
       fuerzas.add(etFuerzaAire, etFuerzaPlatina);
 
+      /* ---------- Osciloscopios anclados al trayecto ---------- */
+      const SCOPES = [
+        { titulo: '1 · Conducto (aire)', color: '#2a8fd6', pos: V(-17, 11, 0) },
+        { titulo: '2 · Tímpano', color: '#c2447a', pos: V(-9, -5.5, 2) },
+        { titulo: '3 · Platina (ventana oval)', color: '#7c4dcc', pos: V(9, 13, 0) },
+        { titulo: '4 · Membrana basilar', color: '#0f8a7a', pos: V(20.5, -4.5, 4) },
+      ];
+      for (const sc of SCOPES) {
+        const el = document.createElement('div');
+        el.className = 'scope3d';
+        el.style.setProperty('--c', sc.color);
+        el.innerHTML = `<b>${sc.titulo}</b><canvas width="372" height="116"></canvas>
+          <div class="num"><span class="p"></span><span class="w"></span></div><div class="leyenda"></div>`;
+        sc.cv = el.querySelector('canvas');
+        sc.elP = el.querySelector('.p');
+        sc.elW = el.querySelector('.w');
+        sc.elL = el.querySelector('.leyenda');
+        sc.obj = new CSS2DObject(el);
+        sc.obj.position.copy(sc.pos);
+        scene.add(sc.obj);
+      }
+      SCOPES[0].elL.textContent = '—— presión  - - velocidad  —— normal';
+      SCOPES[3].elL.textContent = 'escala propia (1 = oído normal)';
+
+      const fmtPa = v => v >= 1 ? fmt(v, 2) + ' Pa' : v >= 0.001 ? fmt(v * 1000, v >= 0.01 ? 0 : 1) + ' mPa' : fmt(v * 1e6, 0) + ' µPa';
+
+      function trazo(g, w, h, amp, ciclos, color, punteado, fase) {
+        g.save();
+        g.strokeStyle = color;
+        g.lineWidth = punteado ? 1.2 : 1.9;
+        if (punteado) g.setLineDash([3, 3]);
+        g.beginPath();
+        const mitad = h / 2, A = amp * (mitad - 3);
+        for (let x = 0; x <= w; x += 1.5) {
+          const y = mitad - A * Math.sin((x / w) * ciclos * Math.PI * 2 - fase);
+          x ? g.lineTo(x, y) : g.moveTo(x, y);
+        }
+        g.stroke();
+        g.restore();
+      }
+
+      function dibujarScopes(fase) {
+        const tr = trayecto(C, S);
+        // El oído normal, evaluado al mismo nivel y frecuencia que la configuración actual
+        const sN = { ...NORMAL, nivel: S.nivel, freqV: S.freqV };
+        const trN = trayecto(calcular(sN), sN);
+        const ciclos = 1.1 + Math.log2(C.f / 125) * 0.45;
+        // Referencia de escala: el oído normal en las mismas condiciones, para que una
+        // atenuación (reflejo, otosclerosis) se vea como una onda más chica y no se reescale.
+        const maximo = Math.max(1e-9, ...trN.p.slice(0, 3).map(Math.abs), ...trN.u.slice(0, 3).map(Math.abs));
+        for (let i = 0; i < 4; i++) {
+          const sc = SCOPES[i];
+          const g = sc.cv.getContext('2d');
+          const w = 186, h = 58;
+          g.setTransform(2, 0, 0, 2, 0, 0);
+          g.clearRect(0, 0, w, h);
+          g.strokeStyle = '#eef2f7';
+          g.lineWidth = 1;
+          g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
+          if (i < 3) {
+            const esc = opts.escalaComun ? maximo : Math.max(1e-9, Math.abs(tr.p[i]), Math.abs(tr.u[i]));
+            trazo(g, w, h, trN.p[i] / esc * 0.92, ciclos, '#c9d3df', false, fase);
+            trazo(g, w, h, tr.u[i] / esc * 0.92, ciclos, sc.color + '80', true, fase);
+            trazo(g, w, h, tr.p[i] / esc * 0.92, ciclos, sc.color, false, fase);
+            if (Math.abs(tr.p[i]) / esc > 1.02) {
+              g.fillStyle = sc.color;
+              g.font = '700 8px ui-monospace, Menlo, monospace';
+              g.fillText('▲ fuera de escala', 3, 9);
+            }
+            sc.elP.textContent = 'p ' + fmtPa(tr.pPa * Math.abs(tr.p[i]));
+            sc.elW.textContent = fmtPct(tr.pot[i] / tr.pot[0]) + ' % pot.';
+            if (i === 1) sc.elL.textContent = `p ×${fmt(Math.abs(tr.p[1]), 2)} · u ×${fmt(Math.abs(tr.u[1]), 2)} vs. aire libre`;
+            if (i === 2) {
+              const rp = Math.abs(tr.p[2] / tr.p[1]), ru = Math.abs(tr.u[1] / tr.u[2]);
+              sc.elL.textContent = `p ×${fmt(rp, rp < 10 ? 2 : 1)} · u ÷${fmt(ru, ru < 10 ? 2 : 1)} vs. tímpano`;
+            }
+          } else {
+            // Onda viajera en la membrana basilar: amplitud ∝ √potencia, referida al oído normal
+            const rel = Math.sqrt(Math.max(0, tr.pot[2]) / Math.max(1e-12, trN.pot[2]));
+            const a = Math.min(1, rel);
+            g.save();
+            g.strokeStyle = '#c9d3df';
+            g.setLineDash([3, 3]);
+            g.lineWidth = 1;
+            g.beginPath();
+            g.moveTo(0, h / 2 - (h / 2 - 3) * 0.92); g.lineTo(w, h / 2 - (h / 2 - 3) * 0.92);
+            g.stroke();
+            g.restore();
+            g.strokeStyle = sc.color;
+            g.lineWidth = 1.9;
+            g.beginPath();
+            for (let x = 0; x <= w; x += 1.5) {
+              const t = x / w;
+              const env = Math.exp(-Math.pow((t - 0.62) / (t < 0.62 ? 0.3 : 0.09), 2));
+              const y = h / 2 - a * env * (h / 2 - 3) * 0.92 * Math.sin(fase * 1.2 - Math.pow(t / 0.62, 1.6) * 9);
+              x ? g.lineTo(x, y) : g.moveTo(x, y);
+            }
+            g.stroke();
+            sc.elP.textContent = `${fmtPct(rel)} % del normal`;
+            sc.elW.textContent = fmtPct(tr.pot[2] / tr.pot[0]) + ' % pot.';
+          }
+        }
+      }
+
       /* ---------- Selección ---------- */
       let seleccion = null;
       function resaltar(key) {
@@ -1631,7 +1785,7 @@
 
       /* ---------- Estado aplicado ---------- */
       let S = null, C = null;
-      const opts = { etiquetas: true, fuerzas: true, ondas: true, lento: true, giro: false };
+      const opts = { etiquetas: true, fuerzas: true, ondas: true, lento: true, giro: false, graficos: false, escalaComun: true };
       let contraccion = 0, reflejoDesde = null;
 
       function apply(s, c) {
@@ -1803,6 +1957,7 @@
             }
           }
           cols.needsUpdate = true;
+          if (opts.graficos) dibujarScopes(fase);
         }
 
         fuerzas.visible = opts.fuerzas;
@@ -1901,7 +2056,8 @@
       presetActivo = c.id;
       sincronizarControles();
       update();
-      if (c.id === 'reflejo' || c.id === 'otosclerosis') irVista('medio');
+      const conGraficos = $('tg-graficos').getAttribute('aria-pressed') === 'true';
+      if (!conGraficos && (c.id === 'reflejo' || c.id === 'otosclerosis')) irVista('medio');
     }
 
     const RANGOS = ['nivel', 'freq', 'conducto', 'timpano', 'platina', 'palanca', 'rigidez', 'masa', 'ganancia'];
@@ -1952,13 +2108,18 @@
         update();
       });
       document.querySelectorAll('[data-vista]').forEach(b => b.addEventListener('click', () => irVista(b.dataset.vista)));
-      const toggles = { 'tg-etiquetas': 'etiquetas', 'tg-flechas': 'fuerzas', 'tg-ondas': 'ondas', 'tg-lento': 'lento', 'tg-giro': 'giro' };
+      const toggles = { 'tg-etiquetas': 'etiquetas', 'tg-flechas': 'fuerzas', 'tg-ondas': 'ondas', 'tg-lento': 'lento', 'tg-giro': 'giro', 'tg-graficos': 'graficos', 'tg-escala': 'escalaComun' };
       for (const [id, opt] of Object.entries(toggles)) {
         $(id).addEventListener('click', () => {
           const on = $(id).getAttribute('aria-pressed') !== 'true';
           $(id).setAttribute('aria-pressed', String(on));
           escena?.setOpt(opt, on);
           if (opt === 'etiquetas') document.body.classList.toggle('sin-etiquetas', !on);
+          if (opt === 'graficos') {
+            document.body.classList.toggle('sin-graficos', !on);
+            $('tg-escala').hidden = !on;
+            if (on) irVista('general');   // los osciloscopios están anclados alrededor del modelo
+          }
         });
       }
       document.querySelectorAll('[data-modo]').forEach(b => b.addEventListener('click', () => setModo(b.dataset.modo)));
@@ -2034,7 +2195,8 @@
         nr.className = 'nota reflejo-on';
         const graves = c.mecanica(250) - reactancia(250, c.k, c.m);
         const agudos = c.mecanica(4000) - reactancia(4000, c.k, c.m);
-        nr.innerHTML = `<b>Contraído.</b> Rigidiza la cadena (K ×${fmt(c.kRef / c.k, 1)}): ${fmtSigned(graves)} dB a 250 Hz, sólo ${fmtSigned(agudos)} dB a 4 kHz. Latencia ≈ 100 ms.`;
+        const enAgudos = Math.abs(agudos) < 0.1 ? 'prácticamente nada en 4 kHz' : `sólo ${fmtSigned(agudos)} dB a 4 kHz`;
+        nr.innerHTML = `<b>Contraído.</b> Rigidiza la cadena (K ×${fmt(c.kRef / c.k, 1)}): ${fmtSigned(graves)} dB a 250 Hz y ${enAgudos}. Latencia ≈ 100 ms.`;
       }
       $('reflejo-flag').classList.toggle('on', c.reflejo);
 
@@ -2577,6 +2739,7 @@
     /* =====================================================================
        ARRANQUE
        ===================================================================== */
+    document.body.classList.add('sin-graficos');
     construirRail();
     setModo(modo, true);
     bindControles();
