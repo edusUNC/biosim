@@ -184,6 +184,27 @@ export const simuladores: Simulador[] = [
     tiempoEstimado: "10–20 minutos"
   },
   {
+    id: "simulador-audicion",
+    nombre: "Audición: el oído medio como adaptador de impedancias",
+    descripcion: "Modelo 3D interactivo del oído externo, medio e interno para entender por qué el sonido necesita un transformador de impedancias para pasar del aire a la perilinfa. Permite modificar el tímpano, la platina, la cadena de huesecillos, colocar implantes, activar el reflejo estapedial y escuchar cómo cambia lo que llega a la cóclea.",
+    categoria: "Neurofisiología",
+    objetivo: "Comprender el concepto de impedancia acústica y cuantificar cuánto aporta cada estructura del oído medio (relación de áreas, palanca osicular, rigidez y masa, reflejo estapedial) a la transmisión del sonido hacia la cóclea.",
+    archivo: "simulador-audicion.html",
+    instrucciones: [
+      "El simulador abre en modo Básico (tímpano, huesecillos, implante y reflejo). El modo Completo agrega platina, palanca, rigidez y masa, conducto auditivo y la respuesta por frecuencia.",
+      "Empezá por el caso 'Cadena interrumpida' y compará: sin oído medio sólo entra ~0,1 % de la energía (la cadena de impedancias y la curva de adaptación lo muestran).",
+      "Modificá el área del tímpano, el de la platina y la palanca; seguí la ganancia de presión N y el presupuesto de ganancia estructura por estructura.",
+      "Cambiá la cantidad de huesecillos (0–3) o reemplazá la cadena por una prótesis TORP o un implante activo.",
+      "Encendé el reflejo estapedial y subí el nivel por encima de 85 dB SPL: mirá la contracción del músculo y la atenuación de los graves.",
+      "Hacé clic en cualquier estructura del modelo 3D para ver su función y su aporte, y usá 'Alternar A/B' para escuchar el oído normal contra tu configuración."
+    ],
+    requisitos: [
+      "Anatomía básica del oído externo, medio e interno.",
+      "Nociones de ondas sonoras, presión y decibeles."
+    ],
+    tiempoEstimado: "15–25 minutos"
+  },
+  {
     id: 'dipolo4',
     nombre: 'Dinámica del Dipolo y el Electrodo',
     descripcion: 'Animación de una onda de despolarización atravesando tejido cardíaco, con galvanómetro y trazado ECG en tiempo real según la posición del electrodo explorador.',

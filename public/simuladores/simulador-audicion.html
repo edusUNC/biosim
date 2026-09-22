@@ -1,0 +1,2759 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador de Audición — Impedancia Acústica y Oído Medio</title>
+  <style>
+    :root {
+      --bg: #eef2f7;
+      --surface: #ffffff;
+      --surface-2: #f7f9fc;
+      --ink: #16202e;
+      --ink-soft: #566274;
+      --ink-faint: #8b97a8;
+      --line: #dde4ed;
+      --primary: #0b5fa5;
+      --primary-dark: #084a82;
+      --accent: #e07b2a;
+      --bone: #c9a86a;
+      --membrana: #e46a8a;
+      --fluido: #2a8fd6;
+      --musculo: #d4412f;
+      --implante: #7c8aa0;
+      --activo: #d9a21b;
+      --ok: #16a34a;
+      --warn: #d97706;
+      --bad: #e11d48;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+      --shadow: 0 1px 2px rgba(16, 26, 38, .06), 0 8px 24px rgba(16, 26, 38, .08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: var(--font);
+      background:
+        radial-gradient(1100px 520px at 12% -8%, #dfe9f6 0%, rgba(223, 233, 246, 0) 62%),
+        radial-gradient(900px 480px at 92% 4%, #f3e6db 0%, rgba(243, 230, 219, 0) 58%),
+        var(--bg);
+      color: var(--ink);
+      line-height: 1.55;
+      margin: 0;
+      padding: 1.25rem;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app { width: 100%; max-width: 1320px; margin: 0 auto; }
+
+    /* ---------- Cabecera ---------- */
+    .topbar {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .topbar h1 { margin: 0; font-size: 1.5rem; letter-spacing: -.02em; }
+    .topbar p { margin: .2rem 0 0; color: var(--ink-soft); font-size: .9rem; max-width: 70ch; }
+
+    .segmented {
+      display: inline-flex;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px;
+      box-shadow: var(--shadow);
+    }
+
+    .segmented button {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      font: inherit;
+      font-size: .88rem;
+      font-weight: 600;
+      color: var(--ink-soft);
+      padding: .42rem 1rem;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background .18s, color .18s;
+      white-space: nowrap;
+    }
+
+    .segmented button[aria-pressed="true"] { background: var(--primary); color: #fff; }
+    .segmented.sm { box-shadow: none; padding: 3px; }
+    .segmented.sm button { padding: .26rem .7rem; font-size: .78rem; }
+    .segmented.full { display: flex; }
+    .segmented.full button { flex: 1; padding-left: .3rem; padding-right: .3rem; }
+
+    /* ---------- Riel de casos ---------- */
+    .rail {
+      display: flex;
+      gap: .5rem;
+      overflow-x: auto;
+      padding: .25rem .1rem .6rem;
+      margin-bottom: .6rem;
+      scrollbar-width: thin;
+    }
+
+    .chip {
+      appearance: none;
+      font: inherit;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      flex: 0 0 auto;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: .42rem .9rem .42rem .42rem;
+      cursor: pointer;
+      color: var(--ink);
+      font-size: .85rem;
+      font-weight: 500;
+      box-shadow: 0 1px 2px rgba(16, 26, 38, .05);
+      transition: border-color .18s, box-shadow .18s, transform .12s, background .18s;
+    }
+
+    .chip:hover { border-color: #b9c6d6; transform: translateY(-1px); }
+
+    .chip .dot {
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--ink-soft);
+      color: #fff;
+      font-size: .74rem;
+      font-weight: 700;
+      flex: 0 0 auto;
+    }
+
+    .chip[aria-pressed="true"] {
+      background: #eef5fd;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(11, 95, 165, .12);
+    }
+
+    /* ---------- Grilla principal ---------- */
+    .main-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      gap: 1.1rem;
+      align-items: start;
+      margin-bottom: 1.1rem;
+    }
+
+    @media (max-width: 1060px) { .main-grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    /* ---------- Escenario 3D ---------- */
+    .stage {
+      position: relative;
+      overflow: hidden;
+      height: 640px;
+      background:
+        radial-gradient(900px 520px at 55% 40%, #ffffff 0%, #f2f6fb 55%, #e6edf5 100%);
+    }
+
+    @media (max-width: 700px) { .stage { height: 460px; } }
+
+    #three-host { position: absolute; inset: 0; }
+    #three-host canvas { display: block; outline: none; }
+
+    .stage-toolbar {
+      position: absolute;
+      top: .7rem;
+      left: .7rem;
+      right: .7rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: .5rem;
+      flex-wrap: wrap;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .stage-toolbar > * { pointer-events: auto; }
+
+    .toggles { display: flex; gap: .35rem; flex-wrap: wrap; }
+
+    .pill-toggle {
+      appearance: none;
+      font: inherit;
+      font-size: .76rem;
+      font-weight: 600;
+      color: var(--ink-soft);
+      background: rgba(255, 255, 255, .88);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: .28rem .7rem;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+    }
+
+    .pill-toggle[aria-pressed="true"] { color: var(--primary); border-color: #9cc0e3; background: #eef5fd; }
+
+    /* Etiquetas 3D */
+    .lbl3d {
+      font: 600 11px/1.2 var(--font);
+      color: var(--ink);
+      background: rgba(255, 255, 255, .9);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 2px 6px;
+      white-space: nowrap;
+      pointer-events: auto;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(16, 26, 38, .12);
+      transition: opacity .2s, border-color .2s;
+    }
+
+    .lbl3d.sel { border-color: var(--primary); color: var(--primary); }
+    .lbl3d.off { opacity: .35; text-decoration: line-through; }
+    body.sin-etiquetas .lbl3d { display: none; }
+
+    /* Panel de estructura */
+    .estructura-panel[hidden] { display: none; }
+
+    .estructura-panel {
+      position: absolute;
+      left: .7rem;
+      bottom: .7rem;
+      width: min(360px, calc(100% - 1.4rem));
+      background: rgba(255, 255, 255, .94);
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--primary);
+      border-radius: 10px;
+      padding: .6rem .75rem .65rem;
+      font-size: .82rem;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+      z-index: 3;
+    }
+
+    .estructura-panel .kick { font-size: .66rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); font-weight: 700; }
+    .estructura-panel h3 { margin: .05rem 0 .2rem; font-size: .98rem; letter-spacing: -.01em; }
+    .estructura-panel p { margin: 0; color: var(--ink-soft); }
+    .estructura-panel .aporte {
+      display: inline-block;
+      margin-top: .4rem;
+      font-family: var(--mono);
+      font-size: .76rem;
+      font-weight: 700;
+      padding: .12rem .5rem;
+      border-radius: 6px;
+      background: #eef5fd;
+      color: var(--primary-dark);
+    }
+
+    .estructura-panel .aporte.neg { background: #fdecef; color: #a3123a; }
+    .estructura-panel .cerrar {
+      position: absolute; top: .35rem; right: .45rem;
+      border: 0; background: transparent; font-size: 1rem; color: var(--ink-faint); cursor: pointer;
+    }
+
+    .reflejo-flag {
+      position: absolute;
+      right: .7rem;
+      bottom: .7rem;
+      background: #fff4f2;
+      border: 1px solid #f7c8c0;
+      color: #9f2b1c;
+      font-size: .78rem;
+      font-weight: 700;
+      padding: .35rem .7rem;
+      border-radius: 999px;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity .25s, transform .25s;
+      z-index: 3;
+    }
+
+    .reflejo-flag.on { opacity: 1; transform: none; }
+
+    .stage-hint {
+      position: absolute;
+      right: .8rem;
+      top: 3.1rem;
+      font-size: .72rem;
+      color: var(--ink-faint);
+      z-index: 2;
+      text-align: right;
+    }
+
+    /* ---------- Panel lateral ---------- */
+    .panel { padding: .9rem 1rem 1rem; }
+
+    .grupo { padding: .7rem 0; border-top: 1px solid var(--line); }
+    .grupo:first-child { border-top: 0; padding-top: 0; }
+
+    .grupo-titulo {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .5rem;
+      font-size: .7rem;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+      font-weight: 700;
+      color: var(--ink-soft);
+      margin-bottom: .45rem;
+    }
+
+    .grupo-titulo .tag { font-family: var(--mono); letter-spacing: 0; text-transform: none; font-weight: 600; color: var(--ink-faint); }
+
+    .ctrl { margin-bottom: .55rem; }
+    .ctrl:last-child { margin-bottom: 0; }
+
+    .ctrl-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: .5rem;
+      font-size: .82rem;
+      font-weight: 600;
+    }
+
+    .ctrl-head output {
+      font-family: var(--mono);
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--primary-dark);
+      background: #eef5fd;
+      padding: .05rem .4rem;
+      border-radius: 5px;
+      white-space: nowrap;
+    }
+
+    .ctrl-sub { font-size: .72rem; color: var(--ink-faint); margin-top: -.05rem; }
+    .ctrl.disabled { opacity: .45; }
+    .ctrl.disabled input { pointer-events: none; }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 22px;
+      background: transparent;
+      margin: .1rem 0 0;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 4px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, var(--primary) 0 var(--p, 50%), #d7e0ea var(--p, 50%) 100%);
+    }
+
+    input[type="range"]::-moz-range-track { height: 4px; border-radius: 4px; background: #d7e0ea; }
+    input[type="range"]::-moz-range-progress { height: 4px; border-radius: 4px; background: var(--primary); }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      margin-top: -6px;
+      border-radius: 50%;
+      background: #fff;
+      border: 2px solid var(--primary);
+      box-shadow: 0 1px 3px rgba(16, 26, 38, .25);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 13px; height: 13px; border-radius: 50%;
+      background: #fff; border: 2px solid var(--primary);
+    }
+
+    .switch-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .6rem;
+      font-size: .84rem;
+      font-weight: 600;
+    }
+
+    .switch {
+      appearance: none;
+      position: relative;
+      width: 40px;
+      height: 23px;
+      border-radius: 999px;
+      background: #cfd8e3;
+      border: 0;
+      cursor: pointer;
+      flex: 0 0 auto;
+      transition: background .2s;
+    }
+
+    .switch::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+      transition: transform .2s;
+    }
+
+    .switch[aria-checked="true"] { background: var(--musculo); }
+    .switch[aria-checked="true"]::after { transform: translateX(17px); }
+
+    .nota {
+      font-size: .74rem;
+      color: var(--ink-soft);
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: .4rem .55rem;
+      margin-top: .45rem;
+    }
+
+    .nota.alerta { background: #fff7ed; border-color: #fcd9b6; color: #8a4513; }
+    .nota.reflejo-on { background: #fff4f2; border-color: #f7c8c0; color: #8f2a1c; }
+
+    /* ---------- Resultado: KPIs ---------- */
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: .7rem;
+      margin-bottom: 1.1rem;
+    }
+
+    @media (max-width: 860px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+    .kpi { padding: .7rem .85rem .75rem; }
+    .kpi .k { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); font-weight: 700; }
+    .kpi .v { font-size: 1.55rem; font-weight: 700; letter-spacing: -.02em; line-height: 1.15; margin-top: .15rem; font-variant-numeric: tabular-nums; }
+    .kpi .v small { font-size: .85rem; font-weight: 600; color: var(--ink-soft); margin-left: .15rem; }
+    .kpi .s { font-size: .76rem; color: var(--ink-soft); }
+    .kpi.ok .v { color: var(--ok); }
+    .kpi.warn .v { color: var(--warn); }
+    .kpi.bad .v { color: var(--bad); }
+
+    /* ---------- Cadena de impedancias ---------- */
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 1.1rem;
+      margin-bottom: 1.1rem;
+    }
+
+    @media (max-width: 1060px) { .bottom-grid { grid-template-columns: 1fr; } }
+
+    .sec { padding: .95rem 1.1rem 1.05rem; }
+    .sec h2 { margin: 0; font-size: 1rem; letter-spacing: -.01em; }
+    .sec .hint { font-size: .8rem; color: var(--ink-soft); margin: .15rem 0 .7rem; }
+
+    .imp-chain {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      align-items: stretch;
+      gap: .4rem;
+      margin-bottom: .85rem;
+    }
+
+    .imp-node {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: .5rem .55rem;
+      background: var(--surface-2);
+      text-align: center;
+      min-width: 0;
+    }
+
+    .imp-node .n { font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-soft); font-weight: 700; }
+    .imp-node .z { font-family: var(--mono); font-size: .92rem; font-weight: 700; margin-top: .1rem; }
+    .imp-node .d { font-size: .7rem; color: var(--ink-faint); }
+    .imp-node.aire { background: #f1f7fd; border-color: #cfe0f2; }
+    .imp-node.visto { background: #fff; border: 2px solid var(--primary); }
+    .imp-node.liquido { background: #eaf4fb; border-color: #bcdcf1; }
+
+    .imp-arrow {
+      align-self: center;
+      font-size: .7rem;
+      font-weight: 700;
+      color: var(--primary);
+      text-align: center;
+      line-height: 1.2;
+      font-family: var(--mono);
+    }
+
+    .imp-arrow::after { content: "→"; display: block; font-size: 1.2rem; font-family: var(--font); }
+
+    .gauge-wrap { margin-bottom: .85rem; }
+    .gauge-legend { display: flex; justify-content: space-between; font-size: .74rem; color: var(--ink-soft); margin-bottom: .25rem; }
+    #match-svg { width: 100%; height: auto; display: block; }
+
+    /* Presupuesto de ganancia */
+    .budget { display: grid; gap: .28rem; }
+
+    .b-row {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr) 62px;
+      align-items: center;
+      gap: .5rem;
+      font-size: .8rem;
+      cursor: default;
+    }
+
+    .b-row .lab { color: var(--ink); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .b-row .val { font-family: var(--mono); font-size: .76rem; font-weight: 700; text-align: right; }
+    .b-row .val.pos { color: var(--ok); }
+    .b-row .val.neg { color: var(--bad); }
+    .b-row .val.cero { color: var(--ink-faint); }
+    .b-track { position: relative; height: 16px; background: var(--surface-2); border-radius: 4px; border: 1px solid var(--line); }
+    .b-bar { position: absolute; top: 2px; bottom: 2px; border-radius: 3px; transition: left .35s, width .35s; }
+    .b-zero { position: absolute; top: -3px; bottom: -3px; width: 1.5px; background: #9fadbd; }
+    .b-row.total { border-top: 1px solid var(--line); padding-top: .35rem; margin-top: .15rem; font-weight: 700; }
+    .b-row.total .lab { font-weight: 700; }
+    .b-row.ref .lab { color: var(--ink-soft); font-style: italic; }
+
+    /* Respuesta en frecuencia */
+    #freq-svg { width: 100%; height: auto; display: block; }
+    .ax { font-size: 10px; fill: #8b97a8; font-weight: 600; }
+    .grid-l { stroke: #e3e9f0; stroke-width: 1; }
+    .legend-inline { display: flex; gap: 1rem; flex-wrap: wrap; font-size: .76rem; color: var(--ink-soft); margin-top: .35rem; }
+    .legend-inline span { display: inline-flex; align-items: center; gap: .35rem; }
+    .legend-inline i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; }
+
+    /* Audio */
+    .audio-box {
+      margin-top: .9rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: linear-gradient(180deg, #fbfcfe, #f4f7fb);
+      padding: .7rem .8rem .8rem;
+    }
+
+    .audio-head { display: flex; justify-content: space-between; align-items: center; gap: .5rem; flex-wrap: wrap; margin-bottom: .55rem; }
+    .audio-head b { font-size: .88rem; }
+
+    .audio-btns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .45rem; }
+
+    .btn {
+      appearance: none;
+      font: inherit;
+      font-weight: 600;
+      font-size: .84rem;
+      padding: .55rem .6rem;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      background: var(--primary);
+      color: #fff;
+      cursor: pointer;
+      transition: background .18s, opacity .18s, box-shadow .18s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .4rem;
+    }
+
+    .btn:hover { background: var(--primary-dark); }
+    .btn.sec-btn { background: #fff; color: var(--ink); border-color: var(--line); }
+    .btn.sec-btn:hover { border-color: #b9c6d6; background: #fff; }
+    .btn.playing { box-shadow: 0 0 0 3px rgba(11, 95, 165, .25); }
+    .btn.sec-btn.playing { border-color: var(--primary); color: var(--primary); }
+
+    .audio-state { font-size: .76rem; color: var(--ink-soft); margin-top: .5rem; min-height: 1.2em; }
+    .audio-vol { display: flex; align-items: center; gap: .5rem; font-size: .76rem; color: var(--ink-soft); }
+    .audio-vol input { width: 110px; }
+    #scope { width: 100%; height: 54px; display: block; margin-top: .5rem; border-radius: 8px; background: #0f1a28; }
+
+    /* ---------- Explicación ---------- */
+    .explicacion { padding: .2rem 1.1rem; }
+    .explicacion summary { cursor: pointer; font-weight: 700; padding: .75rem 0; font-size: .95rem; }
+    .explicacion ul { margin: 0 0 1rem; padding-left: 1.1rem; font-size: .88rem; color: #2c3a4d; }
+    .explicacion li { margin-bottom: .45rem; }
+    .formula { font-family: var(--mono); font-size: .82rem; background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: .05rem .35rem; }
+
+    /* ---------- Osciloscopios en la escena ---------- */
+    .scope3d {
+      width: 186px;
+      background: rgba(255, 255, 255, .95);
+      border: 1px solid var(--line);
+      border-top: 3px solid var(--c, var(--primary));
+      border-radius: 9px;
+      box-shadow: 0 2px 10px rgba(16, 26, 38, .14);
+      padding: .32rem .42rem .36rem;
+      backdrop-filter: blur(6px);
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .scope3d b { display: block; font-size: .68rem; font-weight: 700; letter-spacing: -.01em; color: var(--ink); }
+    .scope3d canvas { width: 100%; height: 58px; display: block; margin: .2rem 0 .18rem; }
+    .scope3d .num { display: flex; justify-content: space-between; gap: .3rem; font-family: var(--mono); font-size: .64rem; font-weight: 700; color: var(--ink-soft); }
+    .scope3d .num .p { color: var(--c, var(--primary)); }
+    .scope3d .leyenda { font-size: .62rem; color: var(--ink-faint); margin-top: .12rem; }
+    body.sin-graficos .scope3d { display: none !important; }
+
+    /* ---------- Tira de ondas ---------- */
+    .ondas-card { padding: .85rem 1.1rem 1rem; margin-bottom: 1.1rem; }
+    .ondas-head { display: flex; justify-content: space-between; align-items: baseline; gap: .75rem; flex-wrap: wrap; margin-bottom: .6rem; }
+    .ondas-head h2 { margin: 0; font-size: 1rem; letter-spacing: -.01em; }
+    .ondas-head .hint { font-size: .78rem; color: var(--ink-soft); }
+    .ondas-head .hint i { display: inline-block; width: 16px; border-top: 2px dashed #aab5c3; vertical-align: middle; margin: 0 .25rem; }
+
+    .ondas-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr) 18px minmax(0, 1fr) 18px minmax(0, 1fr);
+      gap: .35rem;
+      align-items: stretch;
+    }
+
+    @media (max-width: 900px) {
+      .ondas-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .6rem; }
+      .onda-flecha { display: none; }
+    }
+
+    .onda-paso {
+      margin: 0;
+      border: 1px solid var(--line);
+      border-top: 3px solid var(--c, var(--primary));
+      border-radius: 10px;
+      background: var(--surface-2);
+      padding: .5rem .6rem .55rem;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .onda-paso .paso-t { font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; font-weight: 700; color: var(--ink-soft); }
+    .onda-paso .paso-n { font-size: .92rem; font-weight: 700; letter-spacing: -.01em; margin-top: .05rem; }
+    .onda-paso canvas { width: 100%; height: 84px; display: block; margin: .35rem 0 .35rem; border-radius: 7px; background: #fff; border: 1px solid #e8edf3; }
+    .onda-paso .val { font-family: var(--mono); font-size: .8rem; font-weight: 700; color: var(--c, var(--primary)); }
+    .onda-paso p { margin: .1rem 0 0; font-size: .74rem; color: var(--ink-soft); line-height: 1.4; }
+    .onda-flecha { align-self: center; justify-self: center; color: #9fadbd; font-size: 1.15rem; font-weight: 700; }
+
+    /* ---------- Modo básico ---------- */
+    body.modo-basico .solo-completo { display: none !important; }
+    body.modo-basico .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    body.modo-basico .audio-box { margin-top: 0; }
+    .top-actions { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
+
+    .fallback {
+      position: absolute; inset: 0; display: none; place-items: center; text-align: center;
+      padding: 2rem; color: var(--ink-soft); font-size: .9rem; z-index: 4;
+    }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+
+<body>
+  <div class="app">
+
+    <div class="topbar">
+      <div>
+        <h1>Audición: el oído medio como adaptador de impedancias</h1>
+        <p>El sonido viaja por aire (impedancia baja) y tiene que mover la perilinfa de la cóclea (impedancia unas 3600
+          veces mayor). Configurá el tímpano, la cadena de huesecillos o un implante, y escuchá qué llega al oído
+          interno.</p>
+      </div>
+      <div class="top-actions">
+        <div class="segmented" role="group" aria-label="Nivel de detalle">
+          <button type="button" data-modo="basico" aria-pressed="true">Básico</button>
+          <button type="button" data-modo="completo" aria-pressed="false">Completo</button>
+        </div>
+        <div class="segmented" role="group" aria-label="Vista de cámara">
+          <button type="button" data-vista="general" aria-pressed="true">General</button>
+          <button type="button" data-vista="medio" aria-pressed="false">Oído medio</button>
+          <button type="button" data-vista="coclea" aria-pressed="false">Cóclea</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="rail" id="rail" role="group" aria-label="Casos"></div>
+
+    <div class="main-grid">
+      <div class="card stage" id="stage">
+        <div id="three-host"></div>
+        <div class="fallback" id="fallback">No se pudo iniciar la vista 3D (WebGL no disponible o sin conexión a la
+          biblioteca). Los cálculos y el audio siguen funcionando más abajo.</div>
+        <div class="stage-toolbar">
+          <div class="toggles">
+            <button type="button" class="pill-toggle" id="tg-etiquetas" aria-pressed="true">Etiquetas</button>
+            <button type="button" class="pill-toggle solo-completo" id="tg-flechas" aria-pressed="true">Fuerzas</button>
+            <button type="button" class="pill-toggle solo-completo" id="tg-ondas" aria-pressed="true">Ondas</button>
+            <button type="button" class="pill-toggle solo-completo" id="tg-lento" aria-pressed="true">Cámara lenta</button>
+          </div>
+          <div class="toggles">
+            <button type="button" class="pill-toggle" id="tg-graficos" aria-pressed="false">Gráficos</button>
+            <button type="button" class="pill-toggle" id="tg-escala" aria-pressed="true" hidden>Escala común</button>
+            <button type="button" class="pill-toggle solo-completo" id="tg-giro" aria-pressed="false">Girar</button>
+          </div>
+        </div>
+        <div class="stage-hint">Arrastrá para rotar · rueda para acercar · clic en una estructura</div>
+        <div class="estructura-panel" id="est-panel" hidden>
+          <button class="cerrar" id="est-cerrar" aria-label="Cerrar">×</button>
+          <div class="kick" id="est-kick">Estructura</div>
+          <h3 id="est-nombre">Tocá una estructura</h3>
+          <p id="est-desc">Hacé clic sobre cualquier parte del modelo (o su etiqueta) para ver qué hace y cuánto aporta a
+            la transmisión del sonido con la configuración actual.</p>
+          <span class="aporte" id="est-aporte" hidden></span>
+        </div>
+        <div class="reflejo-flag" id="reflejo-flag">● Reflejo estapedial activo</div>
+      </div>
+
+      <aside class="card panel" aria-label="Controles">
+        <div class="grupo">
+          <div class="grupo-titulo">Sonido de entrada</div>
+          <div class="ctrl">
+            <div class="ctrl-head"><label for="in-nivel">Nivel</label><output id="out-nivel"></output></div>
+            <input type="range" id="in-nivel" min="30" max="120" step="1" value="70">
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-head"><label for="in-freq">Frecuencia</label><output id="out-freq"></output></div>
+            <input type="range" id="in-freq" min="0" max="1000" step="1" value="500">
+            <div class="ctrl-sub" id="sub-freq"></div>
+          </div>
+        </div>
+
+        <div class="grupo solo-completo">
+          <div class="grupo-titulo">Oído externo</div>
+          <div class="ctrl">
+            <div class="ctrl-head"><label for="in-conducto">Longitud del conducto</label><output id="out-conducto"></output></div>
+            <input type="range" id="in-conducto" min="15" max="35" step="0.5" value="25">
+            <div class="ctrl-sub" id="sub-conducto"></div>
+          </div>
+        </div>
+
+        <div class="grupo">
+          <div class="grupo-titulo">Oído medio <span class="tag" id="tag-N"></span></div>
+          <div class="ctrl" id="c-timpano">
+            <div class="ctrl-head"><label for="in-timpano">Área efectiva del tímpano</label><output id="out-timpano"></output></div>
+            <input type="range" id="in-timpano" min="10" max="100" step="1" value="55">
+          </div>
+          <div class="ctrl solo-completo" id="c-platina">
+            <div class="ctrl-head"><label for="in-platina">Área de la platina del estribo</label><output id="out-platina"></output></div>
+            <input type="range" id="in-platina" min="1" max="8" step="0.1" value="3.2">
+          </div>
+          <div class="ctrl solo-completo" id="c-palanca">
+            <div class="ctrl-head"><label for="in-palanca">Palanca martillo / yunque</label><output id="out-palanca"></output></div>
+            <input type="range" id="in-palanca" min="1" max="2" step="0.05" value="1.3">
+          </div>
+          <div class="ctrl" id="c-huesos">
+            <div class="ctrl-head"><span>Huesecillos en la cadena</span><output id="out-huesos"></output></div>
+            <div class="segmented sm full" role="group" aria-label="Huesecillos" id="seg-huesos" style="margin-top:.3rem">
+              <button type="button" data-h="0" aria-pressed="false">0</button>
+              <button type="button" data-h="1" aria-pressed="false">1</button>
+              <button type="button" data-h="2" aria-pressed="false">2</button>
+              <button type="button" data-h="3" aria-pressed="true">3</button>
+            </div>
+            <div class="ctrl-sub" id="sub-huesos" style="margin-top:.3rem"></div>
+          </div>
+        </div>
+
+        <div class="grupo solo-completo">
+          <div class="grupo-titulo">Mecánica <span class="tag">Z = R + j(ωM − K/ω)</span></div>
+          <div class="ctrl">
+            <div class="ctrl-head"><label for="in-rigidez">Rigidez (K)</label><output id="out-rigidez"></output></div>
+            <input type="range" id="in-rigidez" min="0" max="1" step="0.005" value="0">
+            <div class="ctrl-sub">Fijación del estribo, cicatrices, presión negativa → pierde graves</div>
+          </div>
+          <div class="ctrl">
+            <div class="ctrl-head"><label for="in-masa">Masa (M)</label><output id="out-masa"></output></div>
+            <input type="range" id="in-masa" min="0" max="1" step="0.005" value="0">
+            <div class="ctrl-sub">Líquido en la caja, prótesis pesada → pierde agudos</div>
+          </div>
+        </div>
+
+        <div class="grupo">
+          <div class="grupo-titulo">Implante</div>
+          <div class="segmented sm full" role="group" aria-label="Implante" id="seg-implante">
+            <button type="button" data-imp="ninguno" aria-pressed="true">Ninguno</button>
+            <button type="button" data-imp="torp" aria-pressed="false">Prótesis (TORP)</button>
+            <button type="button" data-imp="activo" aria-pressed="false">Activo</button>
+          </div>
+          <div class="ctrl" id="c-ganancia" style="margin-top:.55rem" hidden>
+            <div class="ctrl-head"><label for="in-ganancia">Ganancia del transductor</label><output id="out-ganancia"></output></div>
+            <input type="range" id="in-ganancia" min="0" max="60" step="1" value="20">
+          </div>
+          <div class="nota" id="nota-implante" hidden></div>
+        </div>
+
+        <div class="grupo">
+          <div class="switch-row">
+            <span>Reflejo estapedial</span>
+            <button type="button" class="switch" role="switch" id="sw-reflejo" aria-checked="false" aria-label="Reflejo estapedial"></button>
+          </div>
+          <div class="nota" id="nota-reflejo">Umbral ≈ 85 dB SPL. Con el interruptor encendido, subí el nivel de entrada
+            para verlo actuar.</div>
+        </div>
+      </aside>
+    </div>
+
+    <section class="card ondas-card" aria-label="Amplitud de la onda en cada paso">
+      <div class="ondas-head">
+        <h2>Cómo cambia la onda en cada paso</h2>
+        <span class="hint" id="ondas-hint">La línea<i></i>punteada es el oído normal, para comparar</span>
+      </div>
+      <div class="ondas-grid">
+        <figure class="onda-paso" style="--c:#2a8fd6">
+          <div class="paso-t">1 · Conducto</div>
+          <div class="paso-n">Llega al tímpano</div>
+          <canvas id="cv-onda-1" aria-hidden="true"></canvas>
+          <span class="val" id="op-1"></span>
+          <p id="op-1-d">Onda de presión en el aire.</p>
+        </figure>
+        <div class="onda-flecha">→</div>
+        <figure class="onda-paso" style="--c:#e07b2a">
+          <div class="paso-t">2 · Tímpano</div>
+          <div class="paso-n">Parte rebota</div>
+          <canvas id="cv-onda-2" aria-hidden="true"></canvas>
+          <span class="val" id="op-2"></span>
+          <p id="op-2-d"></p>
+        </figure>
+        <div class="onda-flecha">→</div>
+        <figure class="onda-paso" style="--c:#7c4dcc">
+          <div class="paso-t">3 · Huesecillos</div>
+          <div class="paso-n">La presión se concentra</div>
+          <canvas id="cv-onda-3" aria-hidden="true"></canvas>
+          <span class="val" id="op-3"></span>
+          <p id="op-3-d"></p>
+        </figure>
+        <div class="onda-flecha">→</div>
+        <figure class="onda-paso" style="--c:#0f8a7a">
+          <div class="paso-t">4 · Cóclea</div>
+          <div class="paso-n">Lo que entra al líquido</div>
+          <canvas id="cv-onda-4" aria-hidden="true"></canvas>
+          <span class="val" id="op-4"></span>
+          <p id="op-4-d"></p>
+        </figure>
+      </div>
+    </section>
+
+    <div class="kpis">
+      <div class="card kpi solo-completo" id="kpi-N"><div class="k">Ganancia de presión</div><div class="v" id="v-N">—</div><div class="s" id="s-N"></div></div>
+      <div class="card kpi" id="kpi-T"><div class="k">Energía que entra a la cóclea</div><div class="v" id="v-T">—</div><div class="s" id="s-T"></div></div>
+      <div class="card kpi solo-completo" id="kpi-L"><div class="k">Nivel efectivo en la cóclea</div><div class="v" id="v-L">—</div><div class="s" id="s-L"></div></div>
+      <div class="card kpi" id="kpi-P"><div class="k">Pérdida conductiva (PTA)</div><div class="v" id="v-P">—</div><div class="s" id="s-P"></div></div>
+    </div>
+
+    <div class="bottom-grid">
+      <section class="card sec">
+        <h2>La cadena de impedancias</h2>
+        <div class="hint">El oído medio transforma la impedancia de la perilinfa en una que el aire “puede empujar”:
+          la presión se multiplica por N y la impedancia vista se divide por N².</div>
+        <div class="imp-chain">
+          <div class="imp-node aire"><div class="n">Aire</div><div class="z">415</div><div class="d">rayl (Pa·s/m)</div></div>
+          <div class="imp-arrow" id="arr-1">tímpano</div>
+          <div class="imp-node visto"><div class="n">Lo que “ve” el aire</div><div class="z" id="z-visto">—</div><div class="d" id="z-visto-d">Z<sub>cóclea</sub> / N²</div></div>
+          <div class="imp-arrow" id="arr-2">×N</div>
+          <div class="imp-node liquido"><div class="n">Perilinfa</div><div class="z">1,5 M</div><div class="d">rayl</div></div>
+        </div>
+        <div class="gauge-wrap solo-completo">
+          <div class="gauge-legend"><span>Transmisión de energía según la ganancia N</span><span id="gauge-opt"></span></div>
+          <svg id="match-svg" viewBox="0 0 560 150" role="img" aria-label="Curva de transmisión de energía en función de la ganancia de presión"></svg>
+        </div>
+        <h2 style="font-size:.92rem">Cuánto aporta cada parte <span style="font-weight:500;color:var(--ink-soft)" id="budget-f"></span></h2>
+        <div class="hint" style="margin-bottom:.5rem">Cuánto suma o resta cada estructura, en dB respecto de una adaptación perfecta (0 dB).</div>
+        <div class="budget" id="budget"></div>
+      </section>
+
+      <section class="card sec">
+        <div class="solo-completo">
+        <h2>Lo que llega a la cóclea, por frecuencia</h2>
+        <div class="hint">Transferencia aire → cóclea (dB). La rigidez recorta los graves, la masa los agudos y el
+          conducto auditivo refuerza alrededor de 3 kHz.</div>
+        <svg id="freq-svg" viewBox="0 0 560 260" role="img" aria-label="Respuesta en frecuencia del oído normal y de la configuración actual"></svg>
+        <div class="legend-inline">
+          <span><i style="background:#9fadbd"></i>Oído normal</span>
+          <span><i style="background:var(--primary)"></i>Configuración actual</span>
+          <span><i style="background:rgba(225,29,72,.35);height:9px"></i>Pérdida</span>
+          <span><i style="background:var(--accent);width:3px;height:12px"></i>Frecuencia analizada</span>
+        </div>
+        </div>
+
+        <div class="audio-box">
+          <div class="audio-head">
+            <b>Escuchá el resultado</b>
+            <div class="segmented sm" role="group" aria-label="Tipo de sonido" id="seg-sonido">
+              <button type="button" data-s="melodia" aria-pressed="true">Melodía</button>
+              <button type="button" data-s="voz" aria-pressed="false">Vocales</button>
+              <button type="button" data-s="tono" aria-pressed="false">Tono</button>
+              <button type="button" data-s="ruido" aria-pressed="false">Ruido</button>
+            </div>
+          </div>
+          <div class="audio-btns">
+            <button type="button" class="btn sec-btn" id="play-normal">▶ Oído normal</button>
+            <button type="button" class="btn" id="play-actual">▶ Configuración</button>
+            <button type="button" class="btn sec-btn" id="play-ab">⇄ Alternar A/B</button>
+          </div>
+          <canvas id="scope" width="560" height="54"></canvas>
+          <div class="audio-state" id="audio-state">Usá auriculares y un volumen moderado. El audio se reproduce a nivel
+            seguro: lo que cambia es la diferencia respecto del oído normal.</div>
+          <div class="audio-vol" style="margin-top:.35rem"><span>Volumen</span><input type="range" id="in-vol" min="0" max="1" step="0.01" value="0.5"></div>
+        </div>
+      </section>
+    </div>
+
+    <details class="card explicacion">
+      <summary>Cómo funciona el modelo</summary>
+      <ul>
+        <li><b>El problema:</b> cuando una onda pasa de un medio a otro, la fracción de energía transmitida es
+          <span class="formula">T = 4·Z₁·Z₂ / (Z₁ + Z₂)²</span>. Entre aire (415 rayl) y perilinfa (~1,5·10⁶ rayl)
+          T ≈ 0,1 %: se pierden ≈ 30 dB. Probá el caso “Sin oído medio”.</li>
+        <li><b>El transformador:</b> la fuerza que junta el tímpano se concentra en la platina, mucho más chica
+          (<span class="formula">A<sub>tímpano</sub>/A<sub>platina</sub> ≈ 55/3,2 ≈ 17</span>) y la palanca
+          martillo-yunque la multiplica ×1,3. Ganancia de presión <span class="formula">N ≈ 22 (≈ 27 dB)</span>.
+          Desde el aire, la cóclea se “ve” como <span class="formula">Z<sub>cóclea</sub>/N²</span>: más cerca de 415
+          rayl, y por eso pasa mucha más energía.</li>
+        <li><b>Adaptación óptima:</b> la transmisión es máxima cuando <span class="formula">N = √(Z<sub>cóclea</sub>/Z<sub>aire</sub>) ≈ 60</span>.
+          Más ganancia no es mejor: si N se pasa, el aire vuelve a ver una impedancia desadaptada (ahora demasiado
+          baja). Probá agrandar el tímpano y achicar la platina.</li>
+        <li><b>Huesecillos:</b> con 3 huesecillos funcionan la relación de áreas y la palanca. Con 2 (sin martillo) se
+          pierde la palanca y parte del acople; con 1 (columela, como en las aves o una timpanoplastia tipo III) el
+          tímpano apoya directo sobre el estribo. Con 0 la cadena está interrumpida: el sonido llega por aire a las dos
+          ventanas casi en fase y se cancela en parte.</li>
+        <li><b>Impedancia reactiva:</b> la cadena tiene rigidez (K) y masa (M). La rigidez domina en graves y la masa
+          en agudos: por eso la otosclerosis (estribo fijo) da una pérdida de graves y el líquido en la caja aplana
+          toda la curva.</li>
+        <li><b>Reflejo estapedial:</b> por encima de ~85 dB SPL el músculo del estribo (VII par) se contrae de forma
+          bilateral con una latencia de ~25–150 ms, rigidiza la cadena y atenúa sobre todo los graves (hasta ~15–20
+          dB). Protege frente a sonidos sostenidos, no frente a impulsos.</li>
+        <li><b>Implantes:</b> una prótesis pasiva (TORP) reemplaza la cadena por un vástago de titanio entre tímpano y
+          platina: recupera la relación de áreas pero sin palanca y con acople imperfecto. Un implante activo agrega
+          energía: un transductor electromagnético vibra sobre la cadena, así que puede superar al oído normal.</li>
+        <li><b>Los osciloscopios (botón “Gráficos”):</b> muestran presión (línea llena) y velocidad de volumen
+          (punteada), normalizadas a la onda incidente; la potencia es el producto p·u. En el tímpano la presión casi
+          se duplica porque la onda reflejada se suma en fase, pero la potencia ya cayó: la presión sola no dice
+          cuánta energía entra. Entre el tímpano y la platina p se multiplica por N y u se divide por N, así que la
+          potencia se conserva: eso es el transformador. Con “Escala común” la referencia es el oído normal en las
+          mismas condiciones, y la traza gris de cada panel es esa referencia.</li>
+        <li><b>Reflejo y osciloscopios:</b> acá el reflejo se modela como pérdida de transmisión de la cadena, aguas
+          abajo del tímpano, así que los paneles 1 y 2 no cambian. En la realidad la contracción también modifica la
+          impedancia vista desde el conducto, y eso es justamente lo que mide la impedanciometría.</li>
+        <li><b>Simplificaciones:</b> es un modelo docente. La ganancia real del oído medio depende de la frecuencia y
+          ronda 20–25 dB; la curvatura del tímpano (efecto catenaria) y la resonancia del oído externo se representan
+          de forma aproximada.</li>
+      </ul>
+    </details>
+  </div>
+
+  <script type="module">
+    /* =====================================================================
+       MODELO FÍSICO
+       ===================================================================== */
+    const Z_AIRE = 415;          // rayl (Pa·s/m)
+    const Z_COCLEA = 1.5e6;      // rayl, perilinfa (impedancia característica)
+    const F0 = 1000;             // resonancia de la cadena normal (Hz)
+    const Q0 = 0.35;             // cadena muy amortiguada → banda ancha
+    const UMBRAL_REFLEJO = 85;   // dB SPL
+    const F_PTA = [500, 1000, 2000, 4000];
+
+    const NORMAL = {
+      nivel: 70, freqV: 500, conducto: 25, timpano: 55, platina: 3.2, palanca: 1.3,
+      huesos: 3, rigidezV: 0, masaV: 0, implante: 'ninguno', ganancia: 20, reflejo: false
+    };
+
+    const state = { ...NORMAL };
+
+    const freqDeV = v => 125 * Math.pow(64, v / 1000);        // 125 Hz … 8 kHz, escala log
+    const vDeFreq = f => 1000 * Math.log(f / 125) / Math.log(64);
+    const kDeV = v => Math.pow(300, v);                        // ×1 … ×300
+    const mDeV = v => Math.pow(30, v);                         // ×1 … ×30
+    const db10 = x => 10 * Math.log10(Math.max(x, 1e-12));
+    const db20 = x => 20 * Math.log10(Math.max(x, 1e-12));
+
+    function transmision(N) {
+      const zs = Z_COCLEA / (N * N);
+      return 4 * Z_AIRE * zs / Math.pow(Z_AIRE + zs, 2);
+    }
+
+    const N_OPT = Math.sqrt(Z_COCLEA / Z_AIRE);
+    const T_DIRECTA = transmision(1);
+
+    /* Configuración mecánica: qué partes del transformador funcionan */
+    function acople(s) {
+      const areas = s.timpano / s.platina;
+      let r;
+      if (s.implante === 'torp') {
+        r = { areas, palanca: 1, eta: 0.45, ventanas: 0, masaExtra: 2, kExtra: 6, supra: false,
+          modo: 'Prótesis total: vástago de titanio del tímpano a la platina' };
+      } else if (s.huesos === 3) {
+        r = { areas, palanca: s.palanca, eta: 1, ventanas: 0, masaExtra: 1, kExtra: 1, supra: true,
+          modo: 'Cadena completa: relación de áreas + palanca' };
+      } else if (s.huesos === 2) {
+        r = { areas, palanca: 1, eta: 0.55, ventanas: 0, masaExtra: 1, kExtra: 3, supra: true,
+          modo: 'Sin martillo: el tímpano apoya en el yunque, se pierde la palanca' };
+      } else if (s.huesos === 1) {
+        r = { areas, palanca: 1, eta: 0.35, ventanas: 0, masaExtra: 1, kExtra: 10, supra: true,
+          modo: 'Columela: el tímpano apoya directo sobre el estribo' };
+      } else {
+        r = { areas: 1, palanca: 1, eta: 1, ventanas: -18, masaExtra: 1, kExtra: 1, supra: true,
+          modo: 'Cadena interrumpida: el sonido llega por aire a las dos ventanas' };
+      }
+      r.N = r.areas * r.palanca * r.eta;
+      return r;
+    }
+
+    function reflejoActivo(s) {
+      return s.reflejo && s.nivel >= UMBRAL_REFLEJO;
+    }
+
+    function atenReflejo(s) {
+      if (!reflejoActivo(s)) return 0;
+      return Math.min(18, 4 + (s.nivel - UMBRAL_REFLEJO) * 0.5);
+    }
+
+    /* Resonancia de cuarto de onda del conducto auditivo */
+    const fConducto = Lmm => 343000 / (4 * Lmm);
+    function resonanciaConducto(f, Lmm) {
+      const fc = fConducto(Lmm);
+      const x = 1.3 * (f / fc - fc / f);
+      return 12 / (1 + x * x);
+    }
+
+    /* Respuesta de la cadena: Z = R + j(ωM − K/ω), normalizada a R = 1 */
+    function reactancia(f, k, m) {
+      const X = Q0 * (m * f / F0 - k * F0 / f);
+      return db20(1 / Math.sqrt(1 + X * X));
+    }
+
+    /* Todo lo que depende del estado, calculado una sola vez */
+    function calcular(s) {
+      const a = acople(s);
+      const k = kDeV(s.rigidezV) * a.kExtra;
+      const m = mDeV(s.masaV) * a.masaExtra;
+      const aten = a.supra ? atenReflejo(s) : 0;
+      const kRef = k * Math.pow(10, aten / 12);
+      const T = transmision(a.N);
+      const gAct = s.implante === 'activo' ? s.ganancia : 0;
+      const base = db10(T) + a.ventanas + gAct;
+
+      // El reflejo sólo puede atenuar: se toma el mínimo entre la cadena rigidizada y la relajada
+      const mecanica = f => aten > 0 ? Math.min(reactancia(f, kRef, m), reactancia(f, k, m)) : reactancia(f, k, m);
+      const curva = f => base + resonanciaConducto(f, s.conducto) + mecanica(f);
+      const f = freqDeV(s.freqV);
+
+      // Reparto logarítmico de la ganancia del transformador entre sus factores
+      const dT = db10(T) - db10(T_DIRECTA);
+      const lnN = Math.log(a.N);
+      const parte = x => Math.abs(lnN) < 1e-6 ? 0 : dT * Math.log(x) / lnN;
+
+      const presupuesto = [
+        { key: 'ref', lab: 'Aire → perilinfa directo', v: db10(T_DIRECTA), ref: true },
+        { key: 'timpano', lab: 'Relación de áreas', v: parte(a.areas) },
+        { key: 'martillo', lab: 'Palanca martillo–yunque', v: parte(a.palanca) },
+        { key: 'acople', lab: 'Acople de la cadena', v: parte(a.eta) },
+        { key: 'ventanas', lab: 'Ventanas en fase', v: a.ventanas },
+        { key: 'conducto', lab: 'Conducto (resonancia)', v: resonanciaConducto(f, s.conducto) },
+        { key: 'mecanica', lab: 'Rigidez y masa', v: reactancia(f, k, m) },
+        { key: 'estapedio', lab: 'Reflejo estapedial', v: mecanica(f) - reactancia(f, k, m) },
+        { key: 'fmt', lab: 'Implante activo', v: gAct },
+      ];
+      const total = curva(f);
+
+      return { a, k, m, aten, kRef, T, gAct, base, curva, mecanica, f, presupuesto, total, reflejo: aten > 0 };
+    }
+
+    /* Amplitudes a lo largo del trayecto, normalizadas a la onda incidente.
+       p = presión, u = velocidad de volumen; la potencia p·u se conserva a los dos lados
+       del transformador salvo pérdidas. */
+    function trayecto(c, s) {
+      const N = Math.max(1e-6, c.a.N);
+      const Zin = Z_COCLEA / (N * N);
+      const R = (Zin - Z_AIRE) / (Zin + Z_AIRE);          // coeficiente de reflexión en presión
+      const cCanal = Math.pow(10, resonanciaConducto(c.f, s.conducto) / 20);
+      const h = Math.pow(10, c.mecanica(c.f) / 20);       // rigidez, masa y reflejo
+      const v = Math.pow(10, c.a.ventanas / 20);          // cancelación entre ventanas
+      const g = Math.pow(10, c.gAct / 20);                // implante activo
+      const p = [1, (1 + R) * cCanal];
+      const u = [1, (1 - R) * cCanal];
+      p.push(p[1] * N * h * v * g);
+      u.push(u[1] / N * h * v * g);
+      return { R, p, u, pPa: 2e-5 * Math.pow(10, s.nivel / 20), pot: p.map((pi, i) => pi * u[i]) };
+    }
+
+    const CALC_NORMAL = calcular(NORMAL);
+
+    function pta(c) {
+      let suma = 0;
+      for (const f of F_PTA) suma += CALC_NORMAL.curva(f) - c.curva(f);
+      return suma / F_PTA.length;
+    }
+
+    function gradoPerdida(p) {
+      if (p < -3) return ['Ganancia', 'ok'];
+      if (p <= 20) return ['Audición normal', 'ok'];
+      if (p <= 40) return ['Hipoacusia leve', 'warn'];
+      if (p <= 55) return ['Hipoacusia moderada', 'warn'];
+      if (p <= 70) return ['Moderadamente severa', 'bad'];
+      if (p <= 90) return ['Hipoacusia severa', 'bad'];
+      return ['Hipoacusia profunda', 'bad'];
+    }
+
+    /* =====================================================================
+       FORMATOS
+       ===================================================================== */
+    const fmt = (x, d = 1) => x.toLocaleString('es-AR', { minimumFractionDigits: d, maximumFractionDigits: d });
+    const fmtSigned = (x, d = 1) => (x > 0.05 ? '+' : x < -0.05 ? '−' : '±') + fmt(Math.abs(x), d);
+    const fmtHz = f => f >= 1000 ? fmt(f / 1000, f >= 2000 ? 1 : 2) + ' kHz' : Math.round(f) + ' Hz';
+    function fmtZ(z) {
+      if (z >= 1e6) return fmt(z / 1e6, 2) + ' M';
+      if (z >= 1e4) return fmt(z / 1e3, 0) + ' k';
+      if (z >= 1e3) return fmt(z / 1e3, 1) + ' k';
+      return fmt(z, 0);
+    }
+    function fmtPct(t) {
+      const p = t * 100;
+      if (p >= 99 && p < 100) return fmt(Math.floor(p * 10) / 10, 1);
+      if (p >= 10) return fmt(p, 0);
+      if (p >= 1) return fmt(p, 1);
+      if (p >= 0.1) return fmt(p, 2);
+      return fmt(p, 3);
+    }
+
+    /* =====================================================================
+       ESTRUCTURAS (texto de la ficha)
+       ===================================================================== */
+    const aporte = key => {
+      const r = calc.presupuesto.find(p => p.key === key);
+      return r ? r.v : 0;
+    };
+
+    const ESTRUCTURAS = {
+      pabellon: {
+        nombre: 'Pabellón auricular', nivel: 'Oído externo',
+        desc: 'Capta y dirige el sonido hacia el conducto. La concha agrega una resonancia alrededor de 5 kHz y los pliegues aportan pistas para localizar en el plano vertical.',
+        aporte: () => ['Incluido en la resonancia externa', 0]
+      },
+      conducto: {
+        nombre: 'Conducto auditivo externo', nivel: 'Oído externo',
+        desc: 'Tubo cerrado por el tímpano: resuena como un cuarto de onda (f = c / 4L). Con 25 mm refuerza ~10–12 dB cerca de 3,4 kHz, justo donde está la información de las consonantes.',
+        aporte: () => [`Resonancia en ${fmtHz(fConducto(state.conducto))} · a ${fmtHz(calc.f)}: ${fmtSigned(aporte('conducto'))} dB`, aporte('conducto')]
+      },
+      timpano: {
+        nombre: 'Membrana timpánica', nivel: 'Oído medio',
+        desc: 'Colecta la presión sobre ~55 mm² efectivos (de ~85 mm² totales) y la entrega al mango del martillo. Su relación con la platina es el factor principal del transformador.',
+        aporte: () => [`Áreas ×${fmt(calc.a.areas, 1)} → ${fmtSigned(aporte('timpano'))} dB`, aporte('timpano')]
+      },
+      martillo: {
+        nombre: 'Martillo', nivel: 'Oído medio',
+        desc: 'Su mango está fijo al tímpano. Junto con el yunque gira alrededor de un eje: el brazo del martillo es ~1,3 veces más largo que el del yunque, una palanca que multiplica la fuerza.',
+        aporte: () => [`Palanca ×${fmt(calc.a.palanca, 2)} → ${fmtSigned(aporte('martillo'))} dB`, aporte('martillo')]
+      },
+      yunque: {
+        nombre: 'Yunque', nivel: 'Oído medio',
+        desc: 'Brazo corto de la palanca. Su apófisis larga (lenticular) se articula con la cabeza del estribo; es el punto más frágil de la cadena y el que más se erosiona en la otitis crónica.',
+        aporte: () => [`Acople ×${fmt(calc.a.eta, 2)} → ${fmtSigned(aporte('acople'))} dB`, aporte('acople')]
+      },
+      estribo: {
+        nombre: 'Estribo', nivel: 'Oído medio',
+        desc: 'Transmite el movimiento a la platina, que funciona como un pistón en la ventana oval. Es el hueso más pequeño del cuerpo (~3 mm).',
+        aporte: () => [`Rigidez ×${fmt(calc.k, 1)} · masa ×${fmt(calc.m, 1)} → ${fmtSigned(aporte('mecanica'))} dB a ${fmtHz(calc.f)}`, aporte('mecanica')]
+      },
+      platina: {
+        nombre: 'Platina y ventana oval', nivel: 'Límite oído medio / interno',
+        desc: 'Superficie de ~3,2 mm² sostenida por el ligamento anular. Toda la fuerza del tímpano se concentra acá: presión = fuerza / área. En la otosclerosis el hueso nuevo la fija.',
+        aporte: () => [`${fmt(state.platina, 1)} mm² → presión ×${fmt(calc.a.N, 1)} respecto del tímpano`, aporte('timpano')]
+      },
+      ventanaRedonda: {
+        nombre: 'Ventana redonda', nivel: 'Oído interno',
+        desc: 'Membrana que se abomba en contrafase con la platina: como la perilinfa es incompresible, sin ella el estribo no podría moverse. Por eso importa que el sonido llegue sólo a la ventana oval.',
+        aporte: () => [calc.a.ventanas ? `Cancelación de fase: ${fmtSigned(calc.a.ventanas)} dB` : 'Protegida: el sonido entra sólo por la oval', calc.a.ventanas]
+      },
+      coclea: {
+        nombre: 'Cóclea', nivel: 'Oído interno',
+        desc: 'Tubo de 2¾ vueltas lleno de líquido. La membrana basilar es rígida y angosta en la base (agudos) y ancha y laxa en el vértice (graves): cada frecuencia tiene su lugar (tonotopía).',
+        aporte: () => [`Total a ${fmtHz(calc.f)}: ${fmtSigned(calc.total)} dB`, calc.total]
+      },
+      nervio: {
+        nombre: 'Nervio coclear (VIII)', nivel: 'Oído interno',
+        desc: 'Lleva la información de las células ciliadas internas al tronco encefálico. Sus núcleos cocleares disparan el arco del reflejo estapedial vía el complejo olivar superior y el núcleo del facial.',
+        aporte: () => ['Vía aferente del reflejo', 0]
+      },
+      semicirculares: {
+        nombre: 'Conductos semicirculares', nivel: 'Oído interno · vestibular',
+        desc: 'Detectan aceleraciones angulares. No participan de la audición, pero comparten la perilinfa y el vestíbulo con la cóclea.',
+        aporte: () => ['No participa en la audición', 0]
+      },
+      estapedio: {
+        nombre: 'Músculo del estribo', nivel: 'Oído medio · VII par',
+        desc: 'El músculo esquelético más pequeño. Con sonidos intensos tira del cuello del estribo, rigidiza la cadena y atenúa los graves. Su parálisis (Bell) produce hiperacusia.',
+        aporte: () => calc.reflejo
+          ? [`Contraído: ${fmtSigned(aporte('estapedio'))} dB a ${fmtHz(calc.f)}`, aporte('estapedio')]
+          : [state.reflejo ? `Relajado (nivel < ${UMBRAL_REFLEJO} dB SPL)` : 'Reflejo desactivado', 0]
+      },
+      tensor: {
+        nombre: 'Músculo tensor del tímpano', nivel: 'Oído medio · V par',
+        desc: 'Tira del mango del martillo hacia adentro y tensa el tímpano. Se activa con la propia voz, la masticación y el sobresalto; aporta poco al reflejo acústico en humanos.',
+        aporte: () => ['No modelado en detalle', 0]
+      },
+      trompa: {
+        nombre: 'Trompa de Eustaquio', nivel: 'Oído medio',
+        desc: 'Comunica la caja con la rinofaringe e iguala la presión a ambos lados del tímpano. Si se obstruye, la presión negativa rigidiza el sistema y puede acumularse líquido (otitis serosa).',
+        aporte: () => ['Mantiene la rigidez baja', 0]
+      },
+      caja: {
+        nombre: 'Caja timpánica', nivel: 'Oído medio',
+        desc: 'Cavidad llena de aire que permite que el tímpano y la cadena se muevan libremente. Si se llena de líquido, la masa y la rigidez aumentan.',
+        aporte: () => [`Masa ×${fmt(calc.m, 1)}`, 0]
+      },
+      torp: {
+        nombre: 'Prótesis osicular total (TORP)', nivel: 'Implante pasivo',
+        desc: 'Vástago de titanio con una placa bajo el tímpano (con cartílago interpuesto) y el extremo sobre la platina. Recupera la relación de áreas, pero no la palanca y el acople es imperfecto.',
+        aporte: () => [`Acople ×${fmt(calc.a.eta, 2)} → ${fmtSigned(aporte('acople'))} dB`, aporte('acople')]
+      },
+      fmt: {
+        nombre: 'Transductor de masa flotante', nivel: 'Implante activo',
+        desc: 'Imán dentro de una bobina, fijado a la cadena (o a la ventana redonda). El procesador externo capta el sonido y hace vibrar el transductor: agrega energía en lugar de sólo transformarla.',
+        aporte: () => [`${fmtSigned(calc.gAct)} dB de ganancia electrónica`, calc.gAct]
+      },
+    };
+
+    /* =====================================================================
+       ESCENA 3D
+       ===================================================================== */
+    async function crearEscena(host, onSelect) {
+      const THREE = await import('three');
+      const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
+      const { CSS2DRenderer, CSS2DObject } = await import('three/addons/renderers/CSS2DRenderer.js');
+      const V = (x, y, z) => new THREE.Vector3(x, y, z);
+
+      /* ---------- Renderer, cámara, luces ---------- */
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
+      host.appendChild(renderer.domElement);
+
+      const labelRenderer = new CSS2DRenderer();
+      Object.assign(labelRenderer.domElement.style, { position: 'absolute', inset: '0', pointerEvents: 'none' });
+      host.appendChild(labelRenderer.domElement);
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 500);
+      camera.position.set(-12, 14, 64);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.minDistance = 8;
+      controls.maxDistance = 110;
+      controls.target.set(-1, 0.5, 0);
+
+      scene.add(new THREE.HemisphereLight(0xffffff, 0xb9c6d6, 1.25));
+      const sol = new THREE.DirectionalLight(0xffffff, 1.6);
+      sol.position.set(-20, 30, 35);
+      scene.add(sol);
+      const contra = new THREE.DirectionalLight(0xdfe9ff, 0.7);
+      contra.position.set(25, -10, -20);
+      scene.add(contra);
+
+      /* ---------- Materiales ---------- */
+      const MAT = {
+        hueso: () => new THREE.MeshStandardMaterial({ color: 0xead9b4, roughness: .5, metalness: .04 }),
+        piel: () => new THREE.MeshStandardMaterial({ color: 0xf0c3aa, roughness: .7, transparent: true, opacity: .32, side: THREE.DoubleSide, depthWrite: false }),
+        pabellon: () => new THREE.MeshStandardMaterial({ color: 0xf0c3aa, roughness: .75, transparent: true, opacity: .5, side: THREE.DoubleSide, depthWrite: false }),
+        membrana: () => new THREE.MeshPhysicalMaterial({ color: 0xf29bb0, roughness: .35, transparent: true, opacity: .82, side: THREE.DoubleSide, clearcoat: .6 }),
+        caja: () => new THREE.MeshStandardMaterial({ color: 0x9fb8d0, transparent: true, opacity: .07, depthWrite: false, side: THREE.DoubleSide }),
+        fluido: () => new THREE.MeshPhysicalMaterial({ color: 0x9ccbee, roughness: .25, transparent: true, opacity: .55, depthWrite: false, clearcoat: .8 }),
+        coclea: () => new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .3, transparent: true, opacity: .93, clearcoat: .7 }),
+        musculo: () => new THREE.MeshStandardMaterial({ color: 0xc9483a, roughness: .55 }),
+        tendon: () => new THREE.MeshStandardMaterial({ color: 0xf1e6dc, roughness: .5 }),
+        nervio: () => new THREE.MeshStandardMaterial({ color: 0xf0cf6c, roughness: .55 }),
+        trompa: () => new THREE.MeshStandardMaterial({ color: 0xd9a6a0, transparent: true, opacity: .4, side: THREE.DoubleSide, depthWrite: false }),
+        titanio: () => new THREE.MeshStandardMaterial({ color: 0xc3ccd8, metalness: .45, roughness: .3 }),
+        oro: () => new THREE.MeshStandardMaterial({ color: 0xe8b53a, metalness: .3, roughness: .35, emissive: 0x3a2800 }),
+        cartilago: () => new THREE.MeshStandardMaterial({ color: 0xf6f1e7, roughness: .6 }),
+        cable: () => new THREE.MeshStandardMaterial({ color: 0x6b7686, roughness: .5 }),
+        alerta: () => new THREE.MeshBasicMaterial({ color: 0xe11d48, transparent: true, opacity: .8 }),
+      };
+
+      const pickables = [];
+      const porClave = {};
+      function tag(obj, key, pick = true) {
+        obj.traverse(o => {
+          if (!o.isMesh) return;
+          o.userData.key = key;
+          if (pick) pickables.push(o);
+          (porClave[key] ||= []).push(o);
+        });
+        return obj;
+      }
+
+      const tubo = (pts, r, mat, seg = 40, closed = false) =>
+        new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), seg, r, 14, closed), mat);
+
+      function capsulaEntre(a, b, r, mat) {
+        const dir = b.clone().sub(a);
+        const len = dir.length();
+        const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, Math.max(0.01, len - 2 * r), 8, 16), mat);
+        m.position.copy(a).add(b).multiplyScalar(0.5);
+        m.quaternion.setFromUnitVectors(V(0, 1, 0), dir.normalize());
+        return m;
+      }
+
+      const esfera = (p, r, mat, sx = 1, sy = 1, sz = 1) => {
+        const m = new THREE.Mesh(new THREE.SphereGeometry(r, 28, 20), mat);
+        m.position.copy(p);
+        m.scale.set(sx, sy, sz);
+        return m;
+      };
+
+      /* ---------- Oído externo ---------- */
+      const externo = new THREE.Group();
+      scene.add(externo);
+
+      const canalGeo = new THREE.CylinderGeometry(4.7, 3.8, 1, 40, 1, true);
+      const canal = new THREE.Mesh(canalGeo, MAT.piel());
+      canal.rotation.z = Math.PI / 2;          // eje local +y → mundo −x (afuera)
+      externo.add(tag(canal, 'conducto'));
+
+      const pabellon = new THREE.Group();
+      const perfil = [[4.7, 0], [6.2, .8], [8.4, 2.0], [10.2, 2.6], [11.2, 2.4]].map(([r, y]) => new THREE.Vector2(r, y));
+      const concha = new THREE.Mesh(new THREE.LatheGeometry(perfil, 48), MAT.pabellon());
+      concha.rotation.z = Math.PI / 2;
+      pabellon.add(concha);
+      const helix = new THREE.Mesh(new THREE.TorusGeometry(12.5, 1.5, 16, 64, Math.PI * 1.45), MAT.pabellon());
+      helix.rotation.y = Math.PI / 2;
+      helix.rotation.x = Math.PI * .72;
+      helix.scale.set(1, 1.35, 1);
+      helix.position.set(-2.2, 2, -3.5);
+      pabellon.add(helix);
+      externo.add(tag(pabellon, 'pabellon'));
+
+      /* ---------- Tímpano ---------- */
+      const TILT = 0.55;
+      const N_TM = V(Math.cos(TILT), Math.sin(TILT), 0);       // normal hacia medial
+      const U_TM = V(-Math.sin(TILT), Math.cos(TILT), 0);      // "arriba" en el plano del tímpano
+      const TM_CENTRO = V(0, -0.2, 0);
+      const TM_PROF = 1.6;
+
+      const tmGroup = new THREE.Group();
+      tmGroup.position.copy(TM_CENTRO);
+      tmGroup.rotation.z = TILT;
+      scene.add(tmGroup);
+
+      const perfilTM = [];
+      for (let i = 0; i <= 20; i++) {
+        const r = i / 20;
+        perfilTM.push(new THREE.Vector2(r, 1 - Math.pow(r, 0.7)));
+      }
+      const tm = new THREE.Mesh(new THREE.LatheGeometry(perfilTM, 56), MAT.membrana());
+      tm.rotation.z = -Math.PI / 2;            // eje del cono → +x
+      tmGroup.add(tag(tm, 'timpano'));
+      const umboBase = TM_CENTRO.clone().addScaledVector(N_TM, TM_PROF);
+
+      /* ---------- Caja timpánica y trompa ---------- */
+      const caja = esfera(V(4, 2.2, 0), 1, MAT.caja(), 6.5, 7.5, 6);
+      scene.add(caja);
+      const trompa = tubo([V(4.5, -3.8, 3.2), V(6.5, -7, 7), V(8.5, -10.5, 11.5), V(10, -13, 16)], 1.0, MAT.trompa(), 40);
+      scene.add(tag(trompa, 'trompa'));
+
+      /* ---------- Cadena osicular ---------- */
+      const PIVOTE = V(0.6, 6.4, 0.2);
+      const palancaGroup = new THREE.Group();       // martillo + yunque giran juntos
+      palancaGroup.position.copy(PIVOTE);
+      scene.add(palancaGroup);
+      const L = p => p.clone().sub(PIVOTE);           // mundo → local del grupo
+
+      const martillo = new THREE.Group();
+      const matMartillo = MAT.hueso();
+      const procLateral = TM_CENTRO.clone().addScaledVector(U_TM, 4.0).addScaledVector(N_TM, 0.25);
+      martillo.add(esfera(L(V(0.5, 6.9, 0.2)), 1.0, matMartillo, 1, 1.2, 1));
+      martillo.add(tubo([L(V(0.5, 6.4, 0.2)), L(V(-0.4, 5.0, 0.1)), L(procLateral)], 0.5, matMartillo, 20));
+      martillo.add(tubo([L(procLateral), L(TM_CENTRO.clone().addScaledVector(U_TM, 2).addScaledVector(N_TM, 0.75)), L(umboBase)], 0.36, matMartillo, 24));
+      martillo.add(esfera(L(umboBase), 0.42, matMartillo));
+      palancaGroup.add(tag(martillo, 'martillo'));
+
+      const BRAZO_M = PIVOTE.y - umboBase.y;
+      const ESTRIBO_Y = 1.95;
+      const CABEZA_ESTRIBO = V(4.0, ESTRIBO_Y, -0.2);
+      const X_PLATINA = 7.2;
+
+      const yunque = new THREE.Group();
+      const matYunque = MAT.hueso();
+      yunque.add(esfera(L(V(2.0, 6.6, -0.5)), 1.1, matYunque, 1.1, 1.25, 1));
+      yunque.add(tubo([L(V(2.4, 7.0, -1.0)), L(V(2.9, 7.1, -2.4)), L(V(3.3, 6.9, -3.4))], 0.5, matYunque, 16));
+      palancaGroup.add(tag(yunque, 'yunque'));
+      let procLargo = null, lenticular = null;
+
+      function construirProcesoLargo(palanca, erosionado) {
+        if (procLargo) { yunque.remove(procLargo); procLargo.geometry.dispose(); }
+        if (lenticular) { yunque.remove(lenticular); lenticular.geometry.dispose(); }
+        const brazo = BRAZO_M / palanca;
+        const tip = V(2.9, PIVOTE.y - brazo, -0.3);
+        const fin = erosionado ? V(3.1, tip.y + 1.2, -0.3) : tip;
+        procLargo = tubo([L(V(2.5, 6.0, -0.5)), L(V(2.8, (6.0 + fin.y) / 2, -0.4)), L(fin)], 0.34, matYunque, 20);
+        yunque.add(procLargo);
+        lenticular = erosionado ? null : tubo([L(tip), L(V(3.4, ESTRIBO_Y + 0.05, -0.25)), L(CABEZA_ESTRIBO)], 0.28, matYunque, 12);
+        if (lenticular) yunque.add(lenticular);
+        for (const m of [procLargo, lenticular]) if (m) { m.userData.key = 'yunque'; pickables.push(m); }
+        return { tip, brazo };
+      }
+      let geomYunque = construirProcesoLargo(1.3, false);
+
+      /* Estribo */
+      const estriboGroup = new THREE.Group();
+      scene.add(estriboGroup);
+      const supra = new THREE.Group();
+      const matEstribo = MAT.hueso();
+      supra.add(esfera(CABEZA_ESTRIBO, 0.42, matEstribo, 1, 0.9, 0.9));
+      for (const s of [-1, 1]) {
+        const curva = new THREE.QuadraticBezierCurve3(CABEZA_ESTRIBO.clone().add(V(0.3, 0, 0)), V(5.5, ESTRIBO_Y + 0.35 * s, 1.1 * s), V(X_PLATINA - 0.15, ESTRIBO_Y, 1.25 * s));
+        supra.add(new THREE.Mesh(new THREE.TubeGeometry(curva, 24, 0.17, 10), matEstribo));
+      }
+      estriboGroup.add(tag(supra, 'estribo'));
+      const platina = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.26, 40), MAT.hueso());
+      platina.rotation.z = Math.PI / 2;
+      platina.position.set(X_PLATINA, ESTRIBO_Y, 0);
+      estriboGroup.add(tag(platina, 'platina'));
+
+      const rodete = new THREE.Mesh(new THREE.TorusGeometry(1, 0.13, 10, 48), MAT.tendon());
+      rodete.rotation.y = Math.PI / 2;
+      rodete.position.set(X_PLATINA + 0.1, ESTRIBO_Y, 0);
+      scene.add(tag(rodete, 'platina'));
+
+      /* ---------- Músculos ---------- */
+      const cuelloEstribo = V(4.45, ESTRIBO_Y + 0.1, -0.35);
+      const eminencia = V(5.2, -0.4, -4.6);
+      const estapedio = capsulaEntre(eminencia, V(5.0, 0.6, -2.6), 0.55, MAT.musculo());
+      scene.add(tag(estapedio, 'estapedio'));
+      const tendonEstapedio = tubo([V(5.0, 0.6, -2.6), cuelloEstribo], 0.09, MAT.tendon(), 8);
+      scene.add(tag(tendonEstapedio, 'estapedio'));
+
+      const tensor = capsulaEntre(V(4.6, 6.2, 6.4), V(2.6, 5.6, 2.8), 0.36, MAT.musculo());
+      scene.add(tag(tensor, 'tensor'));
+      const tendonTensor = tubo([V(2.6, 5.6, 2.8), V(1.0, 5.3, 1.0), V(-0.2, 5.1, 0.2)], 0.08, MAT.tendon(), 8);
+      scene.add(tag(tendonTensor, 'tensor'));
+
+      /* ---------- Oído interno ---------- */
+      const vestibulo = esfera(V(9.3, ESTRIBO_Y, 0), 2.4, MAT.fluido(), 1, 1.05, 1.1);
+      scene.add(tag(vestibulo, 'coclea'));
+
+      const C_COC = V(11.6, -2.4, 0.6);
+      const TURNS = 2.75;
+      class Espiral extends THREE.Curve {
+        getPoint(t, out = new THREE.Vector3()) {
+          const th = 1.95 - t * TURNS * Math.PI * 2;
+          const r = 4.2 * Math.exp(-1.35 * t);
+          return out.set(C_COC.x + r * Math.cos(th), C_COC.y + r * Math.sin(th), C_COC.z + 4.2 * Math.pow(t, 0.8));
+        }
+      }
+      const TUB_SEG = 360, RAD_SEG = 14;
+      const espiral = new Espiral();
+      const cocleaGeo = new THREE.TubeGeometry(espiral, TUB_SEG, 1, RAD_SEG, false);
+      {
+        const pos = cocleaGeo.attributes.position;
+        const c = new THREE.Vector3(), v = new THREE.Vector3();
+        for (let i = 0; i < pos.count; i++) {
+          const ring = Math.floor(i / (RAD_SEG + 1));
+          const t = ring / TUB_SEG;
+          espiral.getPoint(t, c);
+          v.fromBufferAttribute(pos, i).sub(c).multiplyScalar(1.15 * (1 - t) + 0.42 * t);
+          pos.setXYZ(i, c.x + v.x, c.y + v.y, c.z + v.z);
+        }
+        cocleaGeo.computeVertexNormals();
+        cocleaGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(pos.count * 3), 3));
+      }
+      const coclea = new THREE.Mesh(cocleaGeo, MAT.coclea());
+      scene.add(tag(coclea, 'coclea'));
+      const tapaApex = esfera(espiral.getPoint(1), 0.42, MAT.fluido());
+      scene.add(tag(tapaApex, 'coclea'));
+
+      const ventanaRedonda = new THREE.Mesh(new THREE.SphereGeometry(0.85, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), MAT.membrana());
+      ventanaRedonda.rotation.z = Math.PI / 2;     // cúpula hacia −x (oído medio)
+      ventanaRedonda.position.set(8.1, -1.3, 1.3);
+      ventanaRedonda.scale.set(1, 0.35, 1);
+      scene.add(tag(ventanaRedonda, 'ventanaRedonda'));
+
+      const semi = new THREE.Group();
+      const matSemi = MAT.fluido();
+      const canales = [
+        { p: V(10.8, 6.3, -1.2), rot: [0, Math.PI / 4, 0] },
+        { p: V(12.4, 4.4, -3.0), rot: [0, -Math.PI / 4, 0] },
+        { p: V(12.6, 3.0, -0.4), rot: [Math.PI / 2, 0, 0] },
+      ];
+      for (const c of canales) {
+        const m = new THREE.Mesh(new THREE.TorusGeometry(2.3, 0.32, 12, 48, Math.PI * 1.6), matSemi);
+        m.position.copy(c.p);
+        m.rotation.set(...c.rot);
+        semi.add(m);
+      }
+      scene.add(tag(semi, 'semicirculares'));
+
+      const nervio = tubo([V(12.2, -2.0, 3.2), V(14.5, -1.4, 0.8), V(18, -0.6, -2.2), V(23, 0, -4.5)], 0.85, MAT.nervio(), 40);
+      scene.add(tag(nervio, 'nervio'));
+
+      /* ---------- Reconstrucciones e implantes ---------- */
+      const cartilagoYunque = capsulaEntre(umboBase.clone().addScaledVector(N_TM, 0.2), V(2.9, 2.4, -0.3), 0.32, MAT.cartilago());
+      scene.add(tag(cartilagoYunque, 'yunque'));
+      const columela = capsulaEntre(umboBase.clone().addScaledVector(N_TM, 0.2), CABEZA_ESTRIBO.clone().add(V(-0.35, 0, 0)), 0.34, MAT.cartilago());
+      scene.add(tag(columela, 'estribo'));
+      const marcaGap = new THREE.Mesh(new THREE.TorusGeometry(0.75, 0.07, 8, 40), MAT.alerta());
+      marcaGap.position.set(3.2, 2.8, -0.2);
+      marcaGap.rotation.y = Math.PI / 2;
+      scene.add(marcaGap);
+
+      const torp = new THREE.Group();
+      const matTi = MAT.titanio();
+      const placa = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.7, 0.18, 36), matTi);
+      placa.position.copy(umboBase.clone().addScaledVector(N_TM, 0.35));
+      placa.quaternion.setFromUnitVectors(V(0, 1, 0), N_TM);
+      torp.add(placa);
+      const placaCart = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.9, 0.22, 36), MAT.cartilago());
+      placaCart.position.copy(umboBase.clone().addScaledVector(N_TM, 0.12));
+      placaCart.quaternion.copy(placa.quaternion);
+      torp.add(placaCart);
+      torp.add(capsulaEntre(placa.position.clone(), V(X_PLATINA - 0.35, ESTRIBO_Y, 0), 0.16, matTi));
+      torp.add(esfera(V(X_PLATINA - 0.3, ESTRIBO_Y, 0), 0.3, matTi));
+      const torpGroup = new THREE.Group();
+      torpGroup.add(torp);
+      scene.add(tag(torpGroup, 'torp'));
+
+      const fmtGroup = new THREE.Group();
+      const fmtCuerpo = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 1.6, 24), MAT.oro());
+      fmtCuerpo.rotation.z = Math.PI / 2;
+      fmtGroup.add(fmtCuerpo);
+      const procesador = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.2, 0.9, 40), MAT.cable());
+      procesador.position.set(-10, 13, -13);
+      procesador.rotation.x = Math.PI / 2;
+      const cable = new THREE.Mesh(new THREE.BufferGeometry(), MAT.cable());
+      const fmtRoot = new THREE.Group();
+      fmtRoot.add(fmtGroup, procesador, cable);
+      scene.add(tag(fmtRoot, 'fmt'));
+      let fmtAnclaje = 'yunque';
+
+      function ubicarFMT(donde) {
+        fmtAnclaje = donde;
+        const p = donde === 'yunque' ? V(3.35, 3.2, -0.9) : donde === 'estribo' ? V(4.9, ESTRIBO_Y + 0.9, 0) : V(7.2, -1.3, 1.3);
+        fmtGroup.position.copy(p);
+        fmtGroup.userData.base = p.clone();
+        cable.geometry.dispose();
+        cable.geometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([p, V(p.x - 1, p.y + 5, p.z - 5), V(-4, 11, -10), procesador.position.clone()]), 50, 0.12, 8);
+      }
+      ubicarFMT('yunque');
+
+      /* ---------- Fuerzas (flechas) y brazos de palanca ---------- */
+      const fuerzas = new THREE.Group();
+      scene.add(fuerzas);
+      const flechaAire = new THREE.ArrowHelper(V(1, 0, 0), V(-6.2, -0.2, 0), 3, 0x0b5fa5, 0.9, 0.6);
+      const flechaPlatina = new THREE.ArrowHelper(V(1, 0, 0), V(X_PLATINA + 0.4, ESTRIBO_Y, 0), 4, 0xe07b2a, 1.1, 0.75);
+      fuerzas.add(flechaAire, flechaPlatina);
+      const brazos = new THREE.Group();
+      const lineaMat = c => new THREE.LineBasicMaterial({ color: c, transparent: true, opacity: .9, depthTest: false });
+      const brazoM = new THREE.Line(new THREE.BufferGeometry(), lineaMat(0x0b5fa5));
+      const brazoY = new THREE.Line(new THREE.BufferGeometry(), lineaMat(0xe07b2a));
+      const eje = new THREE.Line(new THREE.BufferGeometry().setFromPoints([V(PIVOTE.x, PIVOTE.y, -4), V(PIVOTE.x, PIVOTE.y, 4)]),
+        new THREE.LineDashedMaterial({ color: 0x566274, dashSize: .4, gapSize: .3, depthTest: false }));
+      eje.computeLineDistances();
+      brazoM.renderOrder = brazoY.renderOrder = eje.renderOrder = 5;
+      brazos.add(brazoM, brazoY, eje);
+      fuerzas.add(brazos);
+
+      function actualizarBrazos() {
+        brazoM.geometry.setFromPoints([PIVOTE, V(PIVOTE.x, umboBase.y, PIVOTE.z)]);
+        brazoY.geometry.setFromPoints([V(PIVOTE.x + 0.25, PIVOTE.y, PIVOTE.z), V(PIVOTE.x + 0.25, geomYunque.tip.y, PIVOTE.z)]);
+      }
+
+      /* ---------- Ondas en el conducto ---------- */
+      const ondas = new THREE.Group();
+      scene.add(ondas);
+      const N_ONDAS = 9;
+      const ondaGeo = new THREE.CircleGeometry(1, 40);
+      const incidentes = [], reflejadas = [];
+      for (let i = 0; i < N_ONDAS; i++) {
+        for (const [lista, color] of [[incidentes, 0x2a8fd6], [reflejadas, 0xe07b2a]]) {
+          const m = new THREE.Mesh(ondaGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+          m.rotation.y = Math.PI / 2;
+          m.userData.fase = i / N_ONDAS;
+          lista.push(m);
+          ondas.add(m);
+        }
+      }
+
+      /* ---------- Etiquetas ---------- */
+      const etiquetas = {};
+      const SECUNDARIAS = new Set(['pabellon', 'caja', 'tensor', 'trompa', 'semicirculares', 'nervio', 'ventanaRedonda']);
+      function etiqueta(key, texto, pos) {
+        const el = document.createElement('div');
+        el.className = 'lbl3d';
+        if (SECUNDARIAS.has(key)) el.classList.add('solo-completo');
+        el.textContent = texto;
+        el.addEventListener('pointerdown', e => e.stopPropagation());
+        el.addEventListener('click', e => { e.stopPropagation(); onSelect(key); });
+        const obj = new CSS2DObject(el);
+        obj.position.copy(pos);
+        scene.add(obj);
+        etiquetas[key] = obj;
+        return obj;
+      }
+      etiqueta('pabellon', 'Pabellón', V(-30, 13, -3));
+      etiqueta('conducto', 'Conducto auditivo', V(-14, 5.6, 0));
+      etiqueta('timpano', 'Tímpano', V(-2.6, -5.6, 1));
+      etiqueta('martillo', 'Martillo', V(-1.6, 8.6, 0.5));
+      etiqueta('yunque', 'Yunque', V(3.4, 8.9, -1));
+      etiqueta('estribo', 'Estribo', V(5.3, 3.9, 1.3));
+      etiqueta('platina', 'Ventana oval', V(7.6, 4.9, 0.5));
+      etiqueta('ventanaRedonda', 'Ventana redonda', V(6.6, -2.8, 2.4));
+      etiqueta('coclea', 'Cóclea', V(14.8, -5.4, 5.5));
+      etiqueta('semicirculares', 'Conductos semicirculares', V(12.5, 9.6, -2));
+      etiqueta('nervio', 'Nervio coclear', V(21.5, 1.6, -4.5));
+      etiqueta('estapedio', 'M. del estribo', V(6.6, -1.6, -5));
+      etiqueta('tensor', 'M. tensor del tímpano', V(5.6, 7.6, 6.8));
+      etiqueta('trompa', 'Trompa de Eustaquio', V(10.5, -12.5, 16));
+      etiqueta('caja', 'Caja timpánica', V(4.5, 10.2, 0));
+      etiqueta('torp', 'Prótesis TORP', V(4.5, -0.6, 1.8));
+      etiqueta('fmt', 'Transductor (FMT)', V(-6, 15.5, -12));
+      const etFuerzaAire = etiqueta('_fa', 'p', V(-5, 1.1, 0));
+      const etFuerzaPlatina = etiqueta('_fp', 'p × N', V(X_PLATINA + 2.6, ESTRIBO_Y + 1.1, 0));
+      for (const o of [etFuerzaAire, etFuerzaPlatina]) {
+        Object.assign(o.element.style, { background: 'transparent', border: '0', boxShadow: 'none', font: '700 12px/1 ui-monospace,Menlo,monospace', pointerEvents: 'none' });
+      }
+      etFuerzaAire.element.style.color = '#0b5fa5';
+      etFuerzaPlatina.element.style.color = '#c25f12';
+      fuerzas.add(etFuerzaAire, etFuerzaPlatina);
+
+      /* ---------- Osciloscopios anclados al trayecto ---------- */
+      const SCOPES = [
+        { titulo: '1 · Conducto (aire)', color: '#2a8fd6', pos: V(-17, 11, 0) },
+        { titulo: '2 · Tímpano', color: '#c2447a', pos: V(-9, -5.5, 2) },
+        { titulo: '3 · Platina (ventana oval)', color: '#7c4dcc', pos: V(9, 13, 0) },
+        { titulo: '4 · Membrana basilar', color: '#0f8a7a', pos: V(20.5, -4.5, 4) },
+      ];
+      for (const sc of SCOPES) {
+        const el = document.createElement('div');
+        el.className = 'scope3d';
+        el.style.setProperty('--c', sc.color);
+        el.innerHTML = `<b>${sc.titulo}</b><canvas width="372" height="116"></canvas>
+          <div class="num"><span class="p"></span><span class="w"></span></div><div class="leyenda"></div>`;
+        sc.cv = el.querySelector('canvas');
+        sc.elP = el.querySelector('.p');
+        sc.elW = el.querySelector('.w');
+        sc.elL = el.querySelector('.leyenda');
+        sc.obj = new CSS2DObject(el);
+        sc.obj.position.copy(sc.pos);
+        scene.add(sc.obj);
+      }
+      SCOPES[0].elL.textContent = '—— presión  - - velocidad  —— normal';
+      SCOPES[3].elL.textContent = 'escala propia (1 = oído normal)';
+
+      const fmtPa = v => v >= 1 ? fmt(v, 2) + ' Pa' : v >= 0.001 ? fmt(v * 1000, v >= 0.01 ? 0 : 1) + ' mPa' : fmt(v * 1e6, 0) + ' µPa';
+
+      function trazo(g, w, h, amp, ciclos, color, punteado, fase) {
+        g.save();
+        g.strokeStyle = color;
+        g.lineWidth = punteado ? 1.2 : 1.9;
+        if (punteado) g.setLineDash([3, 3]);
+        g.beginPath();
+        const mitad = h / 2, A = amp * (mitad - 3);
+        for (let x = 0; x <= w; x += 1.5) {
+          const y = mitad - A * Math.sin((x / w) * ciclos * Math.PI * 2 - fase);
+          x ? g.lineTo(x, y) : g.moveTo(x, y);
+        }
+        g.stroke();
+        g.restore();
+      }
+
+      function dibujarScopes(fase) {
+        const tr = trayecto(C, S);
+        // El oído normal, evaluado al mismo nivel y frecuencia que la configuración actual
+        const sN = { ...NORMAL, nivel: S.nivel, freqV: S.freqV };
+        const trN = trayecto(calcular(sN), sN);
+        const ciclos = 1.1 + Math.log2(C.f / 125) * 0.45;
+        // Referencia de escala: el oído normal en las mismas condiciones, para que una
+        // atenuación (reflejo, otosclerosis) se vea como una onda más chica y no se reescale.
+        const maximo = Math.max(1e-9, ...trN.p.slice(0, 3).map(Math.abs), ...trN.u.slice(0, 3).map(Math.abs));
+        for (let i = 0; i < 4; i++) {
+          const sc = SCOPES[i];
+          const g = sc.cv.getContext('2d');
+          const w = 186, h = 58;
+          g.setTransform(2, 0, 0, 2, 0, 0);
+          g.clearRect(0, 0, w, h);
+          g.strokeStyle = '#eef2f7';
+          g.lineWidth = 1;
+          g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
+          if (i < 3) {
+            const esc = opts.escalaComun ? maximo : Math.max(1e-9, Math.abs(tr.p[i]), Math.abs(tr.u[i]));
+            trazo(g, w, h, trN.p[i] / esc * 0.92, ciclos, '#c9d3df', false, fase);
+            trazo(g, w, h, tr.u[i] / esc * 0.92, ciclos, sc.color + '80', true, fase);
+            trazo(g, w, h, tr.p[i] / esc * 0.92, ciclos, sc.color, false, fase);
+            if (Math.abs(tr.p[i]) / esc > 1.02) {
+              g.fillStyle = sc.color;
+              g.font = '700 8px ui-monospace, Menlo, monospace';
+              g.fillText('▲ fuera de escala', 3, 9);
+            }
+            sc.elP.textContent = 'p ' + fmtPa(tr.pPa * Math.abs(tr.p[i]));
+            sc.elW.textContent = fmtPct(tr.pot[i] / tr.pot[0]) + ' % pot.';
+            if (i === 1) sc.elL.textContent = `p ×${fmt(Math.abs(tr.p[1]), 2)} · u ×${fmt(Math.abs(tr.u[1]), 2)} vs. aire libre`;
+            if (i === 2) {
+              const rp = Math.abs(tr.p[2] / tr.p[1]), ru = Math.abs(tr.u[1] / tr.u[2]);
+              sc.elL.textContent = `p ×${fmt(rp, rp < 10 ? 2 : 1)} · u ÷${fmt(ru, ru < 10 ? 2 : 1)} vs. tímpano`;
+            }
+          } else {
+            // Onda viajera en la membrana basilar: amplitud ∝ √potencia, referida al oído normal
+            const rel = Math.sqrt(Math.max(0, tr.pot[2]) / Math.max(1e-12, trN.pot[2]));
+            const a = Math.min(1, rel);
+            g.save();
+            g.strokeStyle = '#c9d3df';
+            g.setLineDash([3, 3]);
+            g.lineWidth = 1;
+            g.beginPath();
+            g.moveTo(0, h / 2 - (h / 2 - 3) * 0.92); g.lineTo(w, h / 2 - (h / 2 - 3) * 0.92);
+            g.stroke();
+            g.restore();
+            g.strokeStyle = sc.color;
+            g.lineWidth = 1.9;
+            g.beginPath();
+            for (let x = 0; x <= w; x += 1.5) {
+              const t = x / w;
+              const env = Math.exp(-Math.pow((t - 0.62) / (t < 0.62 ? 0.3 : 0.09), 2));
+              const y = h / 2 - a * env * (h / 2 - 3) * 0.92 * Math.sin(fase * 1.2 - Math.pow(t / 0.62, 1.6) * 9);
+              x ? g.lineTo(x, y) : g.moveTo(x, y);
+            }
+            g.stroke();
+            sc.elP.textContent = `${fmtPct(rel)} % del normal`;
+            sc.elW.textContent = fmtPct(tr.pot[2] / tr.pot[0]) + ' % pot.';
+          }
+        }
+      }
+
+      /* ---------- Selección ---------- */
+      let seleccion = null;
+      function resaltar(key) {
+        seleccion = key;
+        for (const [k, obj] of Object.entries(etiquetas)) obj.element.classList.toggle('sel', k === key);
+      }
+
+      const ray = new THREE.Raycaster();
+      const ptr = new THREE.Vector2();
+      const CONTENEDORES = new Set(['conducto', 'pabellon', 'trompa', 'coclea']);
+      function visibleEnEscena(o) {
+        for (let n = o; n; n = n.parent) { if (!n.visible) return false; if (n === scene) return true; }
+        return false;
+      }
+      function pick(ev) {
+        const r = renderer.domElement.getBoundingClientRect();
+        ptr.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+        ray.setFromCamera(ptr, camera);
+        const hits = ray.intersectObjects(scene.children, true).filter(h => h.object.userData.key && visibleEnEscena(h.object));
+        if (!hits.length) return null;
+        const preferido = hits.find(h => !CONTENEDORES.has(h.object.userData.key));
+        return (preferido && preferido.distance - hits[0].distance < 12 ? preferido : hits[0]).object.userData.key;
+      }
+      let down = null;
+      renderer.domElement.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+      renderer.domElement.addEventListener('pointerup', e => {
+        if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
+        const k = pick(e);
+        if (k) onSelect(k);
+      });
+      renderer.domElement.addEventListener('pointermove', e => {
+        if (e.buttons) return;
+        renderer.domElement.style.cursor = pick(e) ? 'pointer' : 'grab';
+      });
+
+      /* ---------- Vistas de cámara ---------- */
+      const VISTAS = {
+        general: { pos: V(-12, 14, 64), tgt: V(-1, 0.5, 0) },
+        medio: { pos: V(-2, 7.5, 23), tgt: V(4.2, 2.6, 0) },
+        coclea: { pos: V(18, 3, 30), tgt: V(11, -1, 2) },
+      };
+      let tween = null;
+      function irA(nombre) {
+        const v = VISTAS[nombre];
+        tween = { t: 0, p0: camera.position.clone(), t0: controls.target.clone(), p1: v.pos, t1: v.tgt };
+      }
+
+      /* ---------- Estado aplicado ---------- */
+      let S = null, C = null;
+      const opts = { etiquetas: true, fuerzas: true, ondas: true, lento: true, giro: false, graficos: false, escalaComun: true };
+      let contraccion = 0, reflejoDesde = null;
+
+      function apply(s, c) {
+        const prev = S;
+        S = { ...s }; C = c;
+
+        // Tamaños
+        const rTM = Math.sqrt((s.timpano / 0.65) / Math.PI);
+        tm.scale.set(rTM, TM_PROF, rTM);            // local y = eje del cono, x/z = radio
+        tm.userData.r = rTM;
+        const k = rTM / 5.2;
+        canal.scale.set(Math.max(.6, k), s.conducto, Math.max(.6, k));
+        canal.position.set(-0.8 - s.conducto / 2, -0.2, 0);
+        pabellon.position.set(-0.8 - s.conducto, -0.2, 0);
+        etiquetas.conducto.position.set(-0.8 - s.conducto * 0.55, 5.6, 0);
+        etiquetas.pabellon.position.set(-4 - s.conducto, 13, -3);
+        flechaAire.position.set(-1.5 - Math.min(8, s.conducto * 0.3) - 3, -0.2, 0);
+        etFuerzaAire.position.set(flechaAire.position.x + 1.2, 1.1, 0);
+
+        const sp = Math.sqrt(s.platina / 3.2);
+        platina.scale.set(0.68 * sp, 1, 1.5 * sp);
+        rodete.scale.set(1.5 * sp + 0.15, 0.68 * sp + 0.15, 1);
+
+        // Configuración de la cadena
+        const torpOn = s.implante === 'torp';
+        const h = torpOn ? -1 : s.huesos;
+        const conPalanca = !torpOn && (h === 3 || h === 0);
+        if (!prev || prev.palanca !== s.palanca || (prev.huesos === 0) !== (h === 0) || prev.implante !== s.implante) {
+          geomYunque = construirProcesoLargo(s.huesos === 3 ? s.palanca : 1.3, h === 0);
+        }
+        martillo.visible = conPalanca;
+        yunque.visible = !torpOn && (h === 3 || h === 2 || h === 0);
+        palancaGroup.visible = martillo.visible || yunque.visible;
+        supra.visible = !torpOn;
+        tendonEstapedio.visible = !torpOn;
+        cartilagoYunque.visible = h === 2;
+        columela.visible = h === 1;
+        marcaGap.visible = h === 0;
+        torpGroup.visible = torpOn;
+        etiquetas.martillo.element.classList.toggle('off', !martillo.visible);
+        etiquetas.yunque.element.classList.toggle('off', !yunque.visible);
+        etiquetas.estribo.element.classList.toggle('off', torpOn);
+        etiquetas.torp.visible = torpOn;
+
+        const actOn = s.implante === 'activo';
+        fmtRoot.visible = actOn;
+        etiquetas.fmt.visible = actOn;
+        if (actOn) {
+          const donde = h === 3 || h === 2 ? 'yunque' : h === 1 ? 'estribo' : 'redonda';
+          if (donde !== fmtAnclaje) ubicarFMT(donde);
+        }
+
+        brazos.visible = s.huesos === 3 && !torpOn;
+        actualizarBrazos();
+        etFuerzaPlatina.element.textContent = `p × ${fmt(c.a.N, 1)}`;
+        const largo = 1.4 * (1 + Math.log2(Math.max(1, c.a.N)) / 2.4);
+        flechaPlatina.setLength(largo, Math.min(1.1, largo * .35), 0.75);
+        etFuerzaPlatina.position.set(X_PLATINA + 0.6 + largo * 0.6, ESTRIBO_Y + 1.1, 0);
+
+        // Reflejo
+        if (c.reflejo && !C_prevReflejo) reflejoDesde = performance.now();
+        if (!c.reflejo) reflejoDesde = null;
+        C_prevReflejo = c.reflejo;
+      }
+      let C_prevReflejo = false;
+
+      function setOpt(nombre, valor) {
+        opts[nombre] = valor;
+        if (nombre === 'etiquetas') document.body.classList.toggle('sin-etiquetas', !valor);
+        if (nombre === 'giro') controls.autoRotate = valor;
+      }
+      controls.autoRotateSpeed = 0.8;
+
+      /* ---------- Animación ---------- */
+      const clock = new THREE.Clock();
+      let fase = 0;
+      const colBase = new THREE.Color(0x7fb8e6), colPico = new THREE.Color(0xff5a36), colTmp = new THREE.Color();
+      const cols = cocleaGeo.attributes.color;
+
+      function greenwoodT(f) {
+        const x = Math.log10(f / 165.4 + 0.88) / 2.1;     // 0 = vértice, 1 = base
+        return Math.min(0.97, Math.max(0.03, 1 - x));
+      }
+
+      function resize() {
+        const w = host.clientWidth, h = host.clientHeight;
+        renderer.setSize(w, h);
+        labelRenderer.setSize(w, h);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+      }
+      new ResizeObserver(resize).observe(host);
+      resize();
+
+      function frame() {
+        const dt = Math.min(0.05, clock.getDelta());
+        if (S && C) {
+          const fVis = opts.lento ? 0.55 + Math.log2(C.f / 125) * 0.22 : 3 + Math.log2(C.f / 125) * 1.2;
+          fase += dt * fVis * Math.PI * 2;
+          const nivelF = Math.min(1, Math.max(0.12, (S.nivel - 25) / 90));
+          const sn = Math.sin(fase);
+
+          // Reflejo: latencia ~100 ms, contracción suave
+          let objetivo = 0;
+          if (reflejoDesde && performance.now() - reflejoDesde > 110) objetivo = 1;
+          contraccion += (objetivo - contraccion) * Math.min(1, dt * 7);
+          const cc = contraccion;
+          estapedio.scale.set(1 + 0.35 * cc, 1 - 0.18 * cc, 1 + 0.35 * cc);
+          estapedio.material.emissive.setRGB(0.45 * cc, 0.02 * cc, 0);
+
+          // Movimiento: el tímpano mueve la palanca; el estribo se mueve menos (palanca + acople)
+          const reflejoAmort = 1 - 0.55 * cc;
+          const theta = 0.055 * nivelF * sn * (C.reflejo ? reflejoAmort : 1);
+          const umboDx = theta * BRAZO_M;
+          tm.scale.y = TM_PROF + umboDx * 0.9;
+          const h = S.implante === 'torp' ? -1 : S.huesos;
+          palancaGroup.rotation.z = (h === 3 || h === 0) ? theta : (h === 2 ? theta * 0.6 : 0);
+          let pist;
+          if (h === 3) pist = umboDx / S.palanca;
+          else if (h === 2) pist = umboDx * 0.7;
+          else if (h === 1) pist = umboDx * 0.5;
+          else if (h === 0) pist = umboDx * 0.06;
+          else pist = umboDx * 0.55;
+          if (S.implante === 'activo') {
+            pist *= Math.pow(10, S.ganancia / 60);
+            fmtGroup.position.x = fmtGroup.userData.base.x + Math.sin(fase) * 0.08 * (0.4 + S.ganancia / 40);
+          }
+          pist *= Math.min(1, 1 / Math.sqrt(C.k * C.m));
+          estriboGroup.position.x = pist * 0.9;
+          estriboGroup.rotation.y = -0.05 * cc;
+          torp.position.copy(N_TM).multiplyScalar(umboDx * 0.35);
+          ventanaRedonda.scale.y = Math.max(0.05, 0.35 + pist * 1.1);
+
+          // Ondas: incidentes (azul) y reflejadas (naranja) — la reflexión es 1 − T
+          ondas.visible = opts.ondas;
+          if (opts.ondas) {
+            const x0 = -0.8 - S.conducto, x1 = -0.6;
+            const R = Math.max(0, 1 - C.T);
+            const rTM = tm.userData.r;
+            for (let i = 0; i < N_ONDAS; i++) {
+              const u = (incidentes[i].userData.fase + fase / (Math.PI * 2) * 0.35) % 1;
+              const x = x0 + u * (x1 - x0);
+              const radio = 4.6 + (3.8 * Math.max(.6, rTM / 5.2) - 4.6) * u;
+              const m = incidentes[i];
+              m.position.set(x, -0.2, 0);
+              m.scale.setScalar(Math.max(.5, radio * 0.92));
+              m.material.opacity = 0.32 * nivelF * (0.4 + 0.6 * Math.sin(u * Math.PI));
+              const r = reflejadas[i];
+              const xr = x1 - u * (x1 - x0);
+              r.position.set(xr, -0.2, 0);
+              r.scale.setScalar(Math.max(.5, (4.6 - 0.8 * (1 - u)) * 0.8));
+              r.material.opacity = 0.36 * R * nivelF * Math.sin(u * Math.PI);
+            }
+          }
+
+          // Cóclea: onda viajera con pico tonotópico, amplitud ∝ nivel efectivo
+          const efectivo = S.nivel + (C.total - CALC_NORMAL.curva(C.f));
+          const I = Math.min(1, Math.max(0, (efectivo - 15) / 80));
+          const tp = greenwoodT(C.f);
+          for (let ring = 0; ring <= TUB_SEG; ring++) {
+            const t = ring / TUB_SEG;
+            const env = t < tp ? Math.exp(-Math.pow((tp - t) / 0.22, 2)) : Math.exp(-Math.pow((t - tp) / 0.04, 2));
+            const ph = fase * 2.2 - Math.pow(t / tp, 1.5) * 26;
+            const a = Math.max(0, I * env * (0.55 + 0.45 * Math.sin(ph)));
+            colTmp.copy(colBase).lerp(colPico, Math.min(1, a * 1.3));
+            for (let j = 0; j <= RAD_SEG; j++) {
+              const idx = ring * (RAD_SEG + 1) + j;
+              cols.setXYZ(idx, colTmp.r, colTmp.g, colTmp.b);
+            }
+          }
+          cols.needsUpdate = true;
+          if (opts.graficos) dibujarScopes(fase);
+        }
+
+        fuerzas.visible = opts.fuerzas;
+
+        if (tween) {
+          tween.t = Math.min(1, tween.t + dt / 0.9);
+          const e = tween.t < .5 ? 4 * tween.t ** 3 : 1 - Math.pow(-2 * tween.t + 2, 3) / 2;
+          camera.position.lerpVectors(tween.p0, tween.p1, e);
+          controls.target.lerpVectors(tween.t0, tween.t1, e);
+          if (tween.t >= 1) tween = null;
+        }
+
+        controls.update();
+        renderer.render(scene, camera);
+        labelRenderer.render(scene, camera);
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+
+      return { apply, irA, setOpt, resaltar };
+    }
+
+    /* =====================================================================
+       INTERFAZ
+       ===================================================================== */
+    const $ = id => document.getElementById(id);
+    const NS = 'http://www.w3.org/2000/svg';
+    const svgEl = (tag, attrs = {}, parent) => {
+      const e = document.createElementNS(NS, tag);
+      for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+      if (parent) parent.appendChild(e);
+      return e;
+    };
+
+    let calc = calcular(state);
+    let escena = null;
+    let seleccion = null;
+    let presetActivo = 'normal';
+
+    const CASOS = [
+      { id: 'normal', basico: true, nombre: 'Oído normal', p: {} },
+      { id: 'interrumpida', basico: true, nombre: 'Cadena interrumpida', p: { huesos: 0 } },
+      { id: 'otosclerosis', basico: true, nombre: 'Otosclerosis', p: { rigidezV: 0.9 } },
+      { id: 'serosa', nombre: 'Otitis media serosa', p: { rigidezV: 0.72, masaV: 0.88 } },
+      { id: 'sin-martillo', nombre: 'Sin martillo (2)', p: { huesos: 2 } },
+      { id: 'columela', nombre: 'Columela (1)', p: { huesos: 1 } },
+      { id: 'torp', basico: true, nombre: 'Prótesis TORP', p: { implante: 'torp' } },
+      { id: 'activo', basico: true, nombre: 'Implante activo', p: { huesos: 0, implante: 'activo', ganancia: 45 } },
+      { id: 'reflejo', basico: true, nombre: 'Ruido intenso + reflejo', p: { nivel: 100, reflejo: true, freqV: vDeFreq(500) } },
+      { id: 'optimo', nombre: 'Adaptación óptima (N≈60)', p: { timpano: 80, platina: 1.7 } },
+      { id: 'timpano-chico', nombre: 'Tímpano pequeño', p: { timpano: 18 } },
+    ];
+
+    function construirRail() {
+      const rail = $('rail');
+      CASOS.forEach((c, i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'chip';
+        b.dataset.caso = c.id;
+        if (!c.basico) b.classList.add('solo-completo');
+        b.innerHTML = `<span class="dot"></span>${c.nombre}`;
+        b.addEventListener('click', () => aplicarCaso(c));
+        rail.appendChild(b);
+      });
+    }
+
+    /* ---------- Modo básico / completo ---------- */
+    let modo = 'basico';
+    try { if (localStorage.getItem('audicion-modo') === 'completo') modo = 'completo'; } catch (_) { }
+    const PARAMS_AVANZADOS = ['conducto', 'platina', 'palanca', 'rigidezV', 'masaV'];
+
+    function setModo(m, inicial = false) {
+      modo = m;
+      document.body.classList.toggle('modo-basico', m === 'basico');
+      document.querySelectorAll('[data-modo]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.modo === m)));
+      let n = 0;
+      document.querySelectorAll('#rail .chip').forEach(b => {
+        const visible = m === 'completo' || !b.classList.contains('solo-completo');
+        if (visible) b.querySelector('.dot').textContent = ++n;
+      });
+      try { localStorage.setItem('audicion-modo', m); } catch (_) { }
+      if (inicial) return;
+      if (m === 'basico') {
+        // Lo que no se ve no debe influir: volver los parámetros ocultos a los valores normales
+        const cambiados = PARAMS_AVANZADOS.some(k => state[k] !== NORMAL[k]);
+        for (const k of PARAMS_AVANZADOS) state[k] = NORMAL[k];
+        if (cambiados) presetActivo = null;
+        sincronizarControles();
+      }
+      update();
+    }
+
+    function aplicarCaso(c) {
+      Object.assign(state, NORMAL, { freqV: state.freqV }, c.p);
+      presetActivo = c.id;
+      sincronizarControles();
+      update();
+      const conGraficos = $('tg-graficos').getAttribute('aria-pressed') === 'true';
+      if (!conGraficos && (c.id === 'reflejo' || c.id === 'otosclerosis')) irVista('medio');
+    }
+
+    const RANGOS = ['nivel', 'freq', 'conducto', 'timpano', 'platina', 'palanca', 'rigidez', 'masa', 'ganancia'];
+    const CLAVE = { freq: 'freqV', rigidez: 'rigidezV', masa: 'masaV' };
+
+    function pintarRango(inp) {
+      const p = (inp.value - inp.min) / (inp.max - inp.min) * 100;
+      inp.style.setProperty('--p', p + '%');
+    }
+
+    function sincronizarControles() {
+      for (const r of RANGOS) {
+        const inp = $('in-' + r);
+        inp.value = state[CLAVE[r] || r];
+        pintarRango(inp);
+      }
+      document.querySelectorAll('#seg-huesos button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.h === state.huesos)));
+      document.querySelectorAll('#seg-implante button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.imp === state.implante)));
+      $('sw-reflejo').setAttribute('aria-checked', String(state.reflejo));
+    }
+
+    function bindControles() {
+      for (const r of RANGOS) {
+        const inp = $('in-' + r);
+        inp.addEventListener('input', () => {
+          state[CLAVE[r] || r] = parseFloat(inp.value);
+          pintarRango(inp);
+          if (r !== 'nivel' && r !== 'freq') presetActivo = null;
+          update();
+        });
+      }
+      document.querySelectorAll('#seg-huesos button').forEach(b => b.addEventListener('click', () => {
+        state.huesos = +b.dataset.h;
+        presetActivo = null;
+        sincronizarControles();
+        update();
+      }));
+      document.querySelectorAll('#seg-implante button').forEach(b => b.addEventListener('click', () => {
+        state.implante = b.dataset.imp;
+        presetActivo = null;
+        sincronizarControles();
+        update();
+      }));
+      $('sw-reflejo').addEventListener('click', () => {
+        state.reflejo = !state.reflejo;
+        presetActivo = null;
+        sincronizarControles();
+        update();
+      });
+      document.querySelectorAll('[data-vista]').forEach(b => b.addEventListener('click', () => irVista(b.dataset.vista)));
+      const toggles = { 'tg-etiquetas': 'etiquetas', 'tg-flechas': 'fuerzas', 'tg-ondas': 'ondas', 'tg-lento': 'lento', 'tg-giro': 'giro', 'tg-graficos': 'graficos', 'tg-escala': 'escalaComun' };
+      for (const [id, opt] of Object.entries(toggles)) {
+        $(id).addEventListener('click', () => {
+          const on = $(id).getAttribute('aria-pressed') !== 'true';
+          $(id).setAttribute('aria-pressed', String(on));
+          escena?.setOpt(opt, on);
+          if (opt === 'etiquetas') document.body.classList.toggle('sin-etiquetas', !on);
+          if (opt === 'graficos') {
+            document.body.classList.toggle('sin-graficos', !on);
+            $('tg-escala').hidden = !on;
+            if (on) irVista('general');   // los osciloscopios están anclados alrededor del modelo
+          }
+        });
+      }
+      document.querySelectorAll('[data-modo]').forEach(b => b.addEventListener('click', () => setModo(b.dataset.modo)));
+      $('est-cerrar').addEventListener('click', () => { $('est-panel').hidden = true; seleccionar(null); });
+    }
+
+    function irVista(nombre) {
+      document.querySelectorAll('[data-vista]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.vista === nombre)));
+      escena?.irA(nombre);
+    }
+
+    /* ---------- Ficha de estructura ---------- */
+    function seleccionar(key) {
+      seleccion = key;
+      escena?.resaltar(key);
+      if (key) $('est-panel').hidden = false;
+      renderFicha();
+    }
+
+    function renderFicha() {
+      const e = seleccion && ESTRUCTURAS[seleccion];
+      if (!e) return;
+      $('est-kick').textContent = e.nivel;
+      $('est-nombre').textContent = e.nombre;
+      $('est-desc').textContent = e.desc;
+      const [txt, v] = e.aporte();
+      const ap = $('est-aporte');
+      ap.hidden = false;
+      ap.textContent = txt;
+      ap.classList.toggle('neg', v < -0.05);
+    }
+
+    /* ---------- KPIs y notas ---------- */
+    function renderPanel() {
+      const c = calc, s = state;
+      $('out-nivel').textContent = `${s.nivel} dB SPL`;
+      $('out-freq').textContent = fmtHz(c.f);
+      const tp = 1 - Math.log10(c.f / 165.4 + 0.88) / 2.1;
+      $('sub-freq').textContent = `Máxima vibración ${tp < .35 ? 'cerca de la base' : tp < .65 ? 'en la vuelta media' : 'cerca del vértice'} de la cóclea`;
+      $('out-conducto').textContent = `${fmt(s.conducto, 1)} mm`;
+      $('sub-conducto').textContent = `Resonancia de cuarto de onda ≈ ${fmtHz(fConducto(s.conducto))}`;
+      $('out-timpano').textContent = `${s.timpano} mm²`;
+      $('out-platina').textContent = `${fmt(s.platina, 1)} mm²`;
+      $('out-palanca').textContent = `×${fmt(s.palanca, 2)}`;
+      $('out-huesos').textContent = s.implante === 'torp' ? 'prótesis' : ['ninguno', 'estribo', 'yunque + estribo', 'completa'][s.huesos];
+      $('out-rigidez').textContent = `×${fmt(kDeV(s.rigidezV), 1)}`;
+      $('out-masa').textContent = `×${fmt(mDeV(s.masaV), 1)}`;
+      $('out-ganancia').textContent = `+${s.ganancia} dB`;
+      $('tag-N').textContent = `N = ×${fmt(c.a.N, 1)}`;
+      $('sub-huesos').textContent = c.a.modo;
+
+      const torpOn = s.implante === 'torp';
+      $('c-palanca').classList.toggle('disabled', torpOn || s.huesos !== 3);
+      $('c-huesos').classList.toggle('disabled', torpOn);
+      $('c-timpano').classList.toggle('disabled', !torpOn && s.huesos === 0);
+      $('c-platina').classList.toggle('disabled', !torpOn && s.huesos === 0);
+      $('c-ganancia').hidden = s.implante !== 'activo';
+
+      const ni = $('nota-implante');
+      ni.hidden = s.implante === 'ninguno';
+      if (torpOn) ni.textContent = 'Reemplaza martillo, yunque y supraestructura del estribo. Conserva la relación de áreas, pero sin palanca, con acople imperfecto (×0,45) y más rigidez y masa que la cadena natural.';
+      if (s.implante === 'activo') {
+        const donde = s.huesos >= 2 ? 'la apófisis larga del yunque' : s.huesos === 1 ? 'el estribo' : 'la ventana redonda';
+        ni.textContent = `El transductor vibra sobre ${donde}. Agrega energía eléctrica: no depende de adaptar impedancias, por eso puede superar al oído normal.`;
+      }
+
+      const nr = $('nota-reflejo');
+      nr.className = 'nota';
+      if (!s.reflejo) nr.textContent = `Desactivado. Encendelo y subí el nivel por encima de ≈${UMBRAL_REFLEJO} dB SPL.`;
+      else if (!c.a.supra) { nr.className = 'nota alerta'; nr.textContent = 'Con la prótesis no hay cuello del estribo donde tracciona el tendón: el reflejo no puede proteger.'; }
+      else if (!c.reflejo) nr.textContent = `Encendido, pero ${s.nivel} dB SPL está por debajo del umbral (≈${UMBRAL_REFLEJO} dB): el músculo sigue relajado.`;
+      else {
+        nr.className = 'nota reflejo-on';
+        const graves = c.mecanica(250) - reactancia(250, c.k, c.m);
+        const agudos = c.mecanica(4000) - reactancia(4000, c.k, c.m);
+        const enAgudos = Math.abs(agudos) < 0.1 ? 'prácticamente nada en 4 kHz' : `sólo ${fmtSigned(agudos)} dB a 4 kHz`;
+        nr.innerHTML = `<b>Contraído.</b> Rigidiza la cadena (K ×${fmt(c.kRef / c.k, 1)}): ${fmtSigned(graves)} dB a 250 Hz y ${enAgudos}. Latencia ≈ 100 ms.`;
+      }
+      $('reflejo-flag').classList.toggle('on', c.reflejo);
+
+      // KPIs
+      $('v-N').innerHTML = `×${fmt(c.a.N, 1)}<small>${fmtSigned(db20(c.a.N))} dB</small>`;
+      $('s-N').textContent = `áreas ×${fmt(c.a.areas, 1)} · palanca ×${fmt(c.a.palanca, 2)} · acople ×${fmt(c.a.eta, 2)}`;
+
+      $('v-T').innerHTML = `${fmtPct(c.T)}<small>%</small>`;
+      $('s-T').textContent = `se refleja el ${fmtPct(1 - c.T)} % · sin oído medio: ${fmtPct(T_DIRECTA)} %`;
+      $('kpi-T').className = 'card kpi ' + (c.T > 0.2 ? 'ok' : c.T > 0.02 ? 'warn' : 'bad');
+
+      const dif = c.total - CALC_NORMAL.curva(c.f);
+      $('v-L').innerHTML = `${fmt(s.nivel + dif, 0)}<small>dB</small>`;
+      $('s-L').textContent = `a ${fmtHz(c.f)}: como oír ${fmt(s.nivel + dif, 0)} dB con un oído normal (${fmtSigned(dif)} dB)`;
+      $('kpi-L').className = 'card kpi solo-completo ' + (dif > -10 ? 'ok' : dif > -30 ? 'warn' : 'bad');
+
+      const p = pta(c);
+      const [grado, cls] = gradoPerdida(p);
+      $('v-P').innerHTML = p < -3 ? `${fmtSigned(-p, 0)}<small>dB</small>` : `${fmt(Math.max(0, p), 0)}<small>dB</small>`;
+      $('s-P').textContent = `${grado} · promedio 0,5–4 kHz`;
+      $('kpi-P').className = 'card kpi ' + cls;
+
+      // Cadena de impedancias
+      const zVisto = Z_COCLEA / (c.a.N * c.a.N);
+      $('z-visto').textContent = fmtZ(zVisto);
+      $('z-visto-d').innerHTML = `rayl = 1,5 M / ${fmt(c.a.N, 1)}²`;
+      $('arr-2').textContent = `×${fmt(c.a.N, 1)}`;
+      $('arr-1').textContent = s.huesos === 0 && s.implante !== 'torp' ? 'sin cadena' : 'tímpano';
+      $('gauge-opt').textContent = `óptimo: N = ${fmt(N_OPT, 0)}`;
+      renderFicha();
+    }
+
+    /* ---------- Curva de adaptación ---------- */
+    function renderMatch() {
+      const svg = $('match-svg');
+      svg.textContent = '';
+      const W = 560, H = 150, l = 40, r = 14, t = 10, b = 26;
+      const xN = n => l + Math.log10(n) / Math.log10(400) * (W - l - r);
+      const yT = v => t + (1 - v) * (H - t - b);
+      for (const v of [0, .5, 1]) {
+        svgEl('line', { x1: l, x2: W - r, y1: yT(v), y2: yT(v), class: 'grid-l' }, svg);
+        svgEl('text', { x: l - 6, y: yT(v) + 3, 'text-anchor': 'end', class: 'ax' }, svg).textContent = `${v * 100}%`;
+      }
+      for (const n of [1, 3, 10, 30, 100, 300]) {
+        svgEl('line', { x1: xN(n), x2: xN(n), y1: t, y2: H - b, class: 'grid-l' }, svg);
+        svgEl('text', { x: xN(n), y: H - b + 14, 'text-anchor': 'middle', class: 'ax' }, svg).textContent = `×${n}`;
+      }
+      let d = '';
+      for (let i = 0; i <= 200; i++) {
+        const n = Math.pow(400, i / 200);
+        d += (i ? 'L' : 'M') + xN(n).toFixed(1) + ',' + yT(transmision(n)).toFixed(1);
+      }
+      svgEl('path', { d: d + `L${xN(400)},${yT(0)}L${xN(1)},${yT(0)}Z`, fill: 'rgba(11,95,165,.07)' }, svg);
+      svgEl('path', { d, fill: 'none', stroke: '#0b5fa5', 'stroke-width': 2 }, svg);
+      svgEl('line', { x1: xN(N_OPT), x2: xN(N_OPT), y1: t, y2: H - b, stroke: '#16a34a', 'stroke-dasharray': '4 3', 'stroke-width': 1.3 }, svg);
+
+      const nN = CALC_NORMAL.a.N;
+      svgEl('circle', { cx: xN(nN), cy: yT(transmision(nN)), r: 5, fill: '#fff', stroke: '#9fadbd', 'stroke-width': 2 }, svg);
+      const nC = Math.min(400, Math.max(1, calc.a.N));
+      const cx = xN(nC), cy = yT(transmision(nC));
+      svgEl('line', { x1: cx, x2: cx, y1: cy, y2: H - b, stroke: '#e07b2a', 'stroke-width': 1.2, 'stroke-dasharray': '2 2' }, svg);
+      svgEl('circle', { cx, cy, r: 6.5, fill: '#e07b2a', stroke: '#fff', 'stroke-width': 2 }, svg);
+      const lbl = svgEl('text', { x: cx + (cx > W - 150 ? -10 : 10), y: Math.max(t + 12, cy - 8), 'text-anchor': cx > W - 150 ? 'end' : 'start', style: 'font:700 11px ui-monospace,Menlo,monospace;fill:#a4541a' }, svg);
+      lbl.textContent = `N ×${fmt(calc.a.N, 1)} → ${fmtPct(calc.T)} %`;
+      svgEl('text', { x: xN(1) + 4, y: yT(transmision(1)) - 6, class: 'ax' }, svg).textContent = 'sin oído medio';
+    }
+
+    /* ---------- Presupuesto ---------- */
+    const DESTINO = { ref: 'coclea', timpano: 'timpano', martillo: 'martillo', ventanas: 'ventanaRedonda', conducto: 'conducto', mecanica: 'estribo', estapedio: 'estapedio', fmt: 'fmt' };
+
+    function renderBudget() {
+      const cont = $('budget');
+      cont.textContent = '';
+      $('budget-f').textContent = `a ${fmtHz(calc.f)}`;
+      const MAX = 45;
+      const pos = v => 50 + Math.max(-MAX, Math.min(MAX, v)) / MAX * 50;
+      const relevantes = modo === 'basico'
+        ? calc.presupuesto.filter(f => f.ref || (f.key !== 'conducto' && Math.abs(f.v) >= 0.05))
+        : calc.presupuesto;
+      const filas = [...relevantes, { key: 'total', lab: 'Llega a la cóclea', v: calc.total, total: true }];
+      for (const f of filas) {
+        const row = document.createElement('div');
+        row.className = 'b-row' + (f.total ? ' total' : '') + (f.ref ? ' ref' : '');
+        const cero = Math.abs(f.v) < 0.05;
+        const colorBar = f.ref ? '#b9c3cf' : f.total ? (f.v > -10 ? '#0b5fa5' : '#e11d48') : f.v >= 0 ? '#16a34a' : '#e11d48';
+        const x1 = pos(Math.min(0, f.v)), x2 = pos(Math.max(0, f.v));
+        const lab = f.key === 'acople' && state.implante === 'torp' ? 'Acople de la prótesis' : f.lab;
+        row.innerHTML = `<span class="lab" title="${lab}">${lab}</span>
+          <span class="b-track"><span class="b-zero" style="left:50%"></span>
+          <span class="b-bar" style="left:${x1}%;width:${Math.max(0, x2 - x1)}%;background:${colorBar};opacity:${cero ? 0 : 1}"></span></span>
+          <span class="val ${cero ? 'cero' : f.v > 0 ? 'pos' : 'neg'}">${cero ? '—' : fmtSigned(f.v)}</span>`;
+        const destino = f.key === 'acople' ? (state.implante === 'torp' ? 'torp' : 'yunque') : f.key === 'total' ? 'coclea' : DESTINO[f.key];
+        if (destino) { row.style.cursor = 'pointer'; row.addEventListener('click', () => seleccionar(destino)); }
+        cont.appendChild(row);
+      }
+    }
+
+    /* ---------- Respuesta en frecuencia ---------- */
+    function renderFreq() {
+      const svg = $('freq-svg');
+      svg.textContent = '';
+      const W = 560, H = 260, l = 42, r = 12, t = 12, b = 28;
+      const Y0 = -80, Y1 = 40;
+      const xF = f => l + Math.log2(f / 125) / 6 * (W - l - r);
+      const yD = d => t + (Y1 - Math.max(Y0, Math.min(Y1, d))) / (Y1 - Y0) * (H - t - b);
+      for (let d = Y0; d <= Y1; d += 20) {
+        svgEl('line', { x1: l, x2: W - r, y1: yD(d), y2: yD(d), class: 'grid-l' }, svg);
+        svgEl('text', { x: l - 6, y: yD(d) + 3, 'text-anchor': 'end', class: 'ax' }, svg).textContent = d > 0 ? '+' + d : d;
+      }
+      for (const f of [125, 250, 500, 1000, 2000, 4000, 8000]) {
+        svgEl('line', { x1: xF(f), x2: xF(f), y1: t, y2: H - b, class: 'grid-l' }, svg);
+        svgEl('text', { x: xF(f), y: H - b + 15, 'text-anchor': 'middle', class: 'ax' }, svg).textContent = f >= 1000 ? f / 1000 + 'k' : f;
+      }
+
+      // Referencias horizontales
+      const dSin = db10(T_DIRECTA);
+      svgEl('line', { x1: l, x2: W - r, y1: yD(0), y2: yD(0), stroke: '#16a34a', 'stroke-dasharray': '4 3' }, svg);
+      svgEl('text', { x: W - r - 4, y: yD(0) - 5, 'text-anchor': 'end', class: 'ax', fill: '#16a34a' }, svg).textContent = 'adaptación perfecta';
+      svgEl('line', { x1: l, x2: W - r, y1: yD(dSin), y2: yD(dSin), stroke: '#c2ccd9', 'stroke-dasharray': '4 3' }, svg);
+      svgEl('text', { x: W - r - 4, y: yD(dSin) - 5, 'text-anchor': 'end', class: 'ax' }, svg).textContent = 'aire → líquido sin oído medio';
+
+      const N = 140, fs = [], nor = [], cur = [];
+      for (let i = 0; i <= N; i++) {
+        const f = 125 * Math.pow(64, i / N);
+        fs.push(f); nor.push(CALC_NORMAL.curva(f)); cur.push(calc.curva(f));
+      }
+      const linea = arr => arr.map((d, i) => (i ? 'L' : 'M') + xF(fs[i]).toFixed(1) + ',' + yD(d).toFixed(1)).join('');
+      const banda = (a, bArr) => linea(a) + bArr.map((d, i) => i).reverse().map(i => 'L' + xF(fs[i]).toFixed(1) + ',' + yD(bArr[i]).toFixed(1)).join('') + 'Z';
+      svgEl('path', { d: banda(nor, cur.map((d, i) => Math.min(d, nor[i]))), fill: 'rgba(225,29,72,.16)' }, svg);
+      svgEl('path', { d: banda(nor, cur.map((d, i) => Math.max(d, nor[i]))), fill: 'rgba(22,163,74,.16)' }, svg);
+      svgEl('path', { d: linea(nor), fill: 'none', stroke: '#9fadbd', 'stroke-width': 2 }, svg);
+      svgEl('path', { d: linea(cur), fill: 'none', stroke: '#0b5fa5', 'stroke-width': 2.6, 'stroke-linejoin': 'round' }, svg);
+
+      const fx = xF(calc.f);
+      svgEl('line', { x1: fx, x2: fx, y1: t, y2: H - b, stroke: '#e07b2a', 'stroke-width': 1.5 }, svg);
+      svgEl('circle', { cx: fx, cy: yD(CALC_NORMAL.curva(calc.f)), r: 4, fill: '#fff', stroke: '#9fadbd', 'stroke-width': 2 }, svg);
+      svgEl('circle', { cx: fx, cy: yD(calc.total), r: 5, fill: '#0b5fa5', stroke: '#fff', 'stroke-width': 2 }, svg);
+      const izq = fx > W - 140;
+      const tx = svgEl('text', { x: fx + (izq ? -8 : 8), y: Math.max(t + 12, yD(calc.total) - 9), 'text-anchor': izq ? 'end' : 'start', style: 'font:700 11px ui-monospace,Menlo,monospace;fill:#084a82' }, svg);
+      tx.textContent = `${fmtSigned(calc.total)} dB`;
+    }
+
+    /* ---------- Tira de ondas ---------- */
+    // Amplitudes relativas (1 = media altura del gráfico)
+    function amplitudesOndas(c, s) {
+      const entrada = 0.3 + 0.55 * Math.min(1, Math.max(0, (s.nivel - 30) / 90));
+      const rebote = entrada * Math.sqrt(Math.max(0, 1 - c.T));
+      const presion = Math.min(0.97, entrada * (1 + Math.log10(Math.max(1, c.a.N)) * 0.55));
+      const coclea = Math.min(0.97, entrada * 0.95 * Math.pow(10, c.curva(c.f) / 20));
+      return { entrada, rebote, presion, coclea };
+    }
+
+    function renderOndasTexto() {
+      const c = calc, s = state;
+      const n = CALC_NORMAL;
+      $('ondas-hint').innerHTML = `A ${fmtHz(c.f)} y ${s.nivel} dB SPL · la línea<i></i>punteada es el oído normal`;
+      $('op-1').textContent = '100 %';
+      $('op-1-d').textContent = 'Toda la energía del sonido llega por el aire hasta el tímpano.';
+      $('op-2').textContent = `rebota el ${fmtPct(1 - c.T)} %`;
+      $('op-2-d').textContent = c.T < 0.01
+        ? 'Casi todo vuelve: el aire “choca” contra un líquido de impedancia enorme.'
+        : `El oído normal refleja el ${fmtPct(1 - n.T)} %. Cuanto mejor la adaptación, menos rebota.`;
+      $('op-3').textContent = `presión ×${fmt(c.a.N, 1)}`;
+      $('op-3-d').textContent = c.a.N < 1.05
+        ? 'Sin cadena no hay transformador: la presión no se amplifica.'
+        : `Tímpano grande → platina chica${c.a.palanca > 1 ? ' + palanca' : ''}. Normal: ×${fmt(n.a.N, 1)}.`;
+      const dif = c.curva(c.f) - n.curva(c.f);
+      $('op-4').textContent = Math.abs(dif) < 0.5 ? 'igual al normal' : `${fmtSigned(dif)} dB vs. normal`;
+      const extras = [];
+      if (c.reflejo) extras.push('el reflejo estapedial la achica');
+      if (c.gAct) extras.push('el implante le suma energía');
+      $('op-4-d').textContent = extras.length
+        ? `Entra el ${fmtPct(c.T)} % de la energía; además ${extras.join(' y ')}.`
+        : `Entra el ${fmtPct(c.T)} % de la energía (sin oído medio: ${fmtPct(T_DIRECTA)} %).`;
+    }
+
+    const ondasAnim = (() => {
+      const cvs = [1, 2, 3, 4].map(i => $('cv-onda-' + i));
+      let fase = 0, prev = performance.now();
+      const COL = ['#2a8fd6', '#e07b2a', '#7c4dcc', '#0f8a7a'];
+
+      function onda(g, w, h, amp, ciclos, dir, color, dash, ancho) {
+        g.save();
+        g.strokeStyle = color;
+        g.lineWidth = ancho;
+        g.setLineDash(dash);
+        g.beginPath();
+        const mitad = h / 2, A = amp * (mitad - 5);
+        for (let x = 0; x <= w; x += 2) {
+          const y = mitad - A * Math.sin((x / w) * ciclos * Math.PI * 2 - dir * fase);
+          x ? g.lineTo(x, y) : g.moveTo(x, y);
+        }
+        g.stroke();
+        g.restore();
+      }
+
+      function flecha(g, w, h, dir, color) {
+        const y = 10, x = dir > 0 ? w - 12 : 12;
+        g.save();
+        g.fillStyle = color;
+        g.globalAlpha = .7;
+        g.beginPath();
+        g.moveTo(x + dir * 6, y);
+        g.lineTo(x - dir * 2, y - 4.5);
+        g.lineTo(x - dir * 2, y + 4.5);
+        g.fill();
+        g.restore();
+      }
+
+      function frame(t) {
+        const dt = Math.min(0.05, (t - prev) / 1000);
+        prev = t;
+        fase += dt * Math.PI * 2 * 0.7;
+        const a = amplitudesOndas(calc, state);
+        const an = amplitudesOndas(CALC_NORMAL, { ...NORMAL, nivel: state.nivel, freqV: state.freqV });
+        const nNorm = CALC_NORMAL.curva(calc.f);
+        an.coclea = Math.min(0.97, an.entrada * 0.95 * Math.pow(10, nNorm / 20));
+        const ciclos = 1.2 + Math.log2(calc.f / 125) * 0.5;
+        const dpr = Math.min(2, devicePixelRatio);
+        const series = [
+          [[a.entrada, 1, COL[0]]],
+          [[an.rebote, -1, null], [a.rebote, -1, COL[1]]],
+          [[an.presion, 1, null], [a.presion, 1, COL[2]]],
+          [[an.coclea, 1, null], [a.coclea, 1, COL[3]]],
+        ];
+        cvs.forEach((cv, i) => {
+          const w = cv.clientWidth, h = cv.clientHeight;
+          if (!w) return;
+          if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+          const g = cv.getContext('2d');
+          g.setTransform(dpr, 0, 0, dpr, 0, 0);
+          g.clearRect(0, 0, w, h);
+          g.strokeStyle = '#e3e9f0';
+          g.lineWidth = 1;
+          g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
+          for (const [amp, dir, color] of series[i]) {
+            if (color) onda(g, w, h, amp, ciclos, dir, color, [], 2.4);
+            else onda(g, w, h, amp, ciclos, dir, '#aab5c3', [4, 4], 1.4);
+          }
+          flecha(g, w, h, series[i][series[i].length - 1][1], COL[i]);
+        });
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    })();
+
+    function update() {
+      calc = calcular(state);
+      document.querySelectorAll('#rail .chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.caso === presetActivo)));
+      renderPanel();
+      renderOndasTexto();
+      renderMatch();
+      renderBudget();
+      renderFreq();
+      escena?.apply(state, calc);
+      audio.actualizar();
+    }
+
+    /* =====================================================================
+       AUDIO — el sonido pasa por el mismo modelo que la curva de arriba
+       ===================================================================== */
+    const audio = (() => {
+      let ctx = null, master = null, analyser = null;
+      let actual = null;          // { modo, cadena, fuentes, fin }
+      let cola = [];
+      let sonido = 'melodia';
+      const DUR = { melodia: 3.2, voz: 3.4, tono: 2.2, ruido: 2.2 };
+
+      function asegurarCtx() {
+        if (ctx) return;
+        ctx = new (window.AudioContext || window.webkitAudioContext)();
+        master = ctx.createGain();
+        const limitador = ctx.createDynamicsCompressor();
+        limitador.threshold.value = -6;
+        limitador.ratio.value = 12;
+        analyser = ctx.createAnalyser();
+        analyser.fftSize = 2048;
+        master.connect(limitador).connect(analyser).connect(ctx.destination);
+        master.gain.value = +$('in-vol').value;
+        dibujarScope();
+      }
+
+      /* Parámetros de filtro equivalentes al modelo */
+      function params(c, s, conReflejo) {
+        const k = conReflejo ? c.kRef : c.k;
+        return {
+          f0: F0 * Math.sqrt(k / c.m),
+          q: Q0 * Math.sqrt(k * c.m),
+          fc: fConducto(s.conducto),
+          plano: c.base - CALC_NORMAL.base,
+        };
+      }
+
+      function crearCadena(modo) {
+        const s = modo === 'normal' ? NORMAL : state;
+        const c = modo === 'normal' ? CALC_NORMAL : calc;
+        const entrada = ctx.createGain();
+        const conducto = ctx.createBiquadFilter();
+        conducto.type = 'peaking';
+        conducto.gain.value = 12;
+        conducto.Q.value = 1.4;
+        const cadena = ctx.createBiquadFilter();
+        cadena.type = 'bandpass';
+        const plano = ctx.createGain();
+        entrada.connect(conducto).connect(cadena).connect(plano).connect(master);
+        const obj = { modo, entrada, conducto, cadena, plano };
+        fijar(obj, s, c, true);
+        return obj;
+      }
+
+      function nivelOffset(s) {
+        return Math.max(-20, Math.min(6, (s.nivel - 75) * 0.5));
+      }
+
+      function fijar(obj, s, c, inicio) {
+        const now = ctx.currentTime;
+        const pSin = params(c, s, false);
+        const pCon = params(c, s, true);
+        const tau = inicio ? 0.001 : 0.05;
+        obj.conducto.frequency.setTargetAtTime(pSin.fc, now, tau);
+        const g = Math.pow(10, (pSin.plano + nivelOffset(s)) / 20);
+        obj.plano.gain.setTargetAtTime(g, now, tau);
+        if (inicio) {
+          obj.cadena.frequency.setValueAtTime(pSin.f0, now);
+          obj.cadena.Q.setValueAtTime(pSin.q, now);
+          if (c.reflejo) {   // latencia del reflejo ≈ 100 ms, luego la cadena se rigidiza
+            obj.cadena.frequency.setTargetAtTime(pCon.f0, now + 0.1, 0.06);
+            obj.cadena.Q.setTargetAtTime(pCon.q, now + 0.1, 0.06);
+          }
+        } else {
+          const p = c.reflejo ? pCon : pSin;
+          obj.cadena.frequency.setTargetAtTime(p.f0, now, tau);
+          obj.cadena.Q.setTargetAtTime(p.q, now, tau);
+        }
+      }
+
+      /* ---------- Fuentes ---------- */
+      function env(g, t0, dur, pico = 0.3, ataque = 0.02, caida = 0.12) {
+        g.gain.setValueAtTime(0, t0);
+        g.gain.linearRampToValueAtTime(pico, t0 + ataque);
+        g.gain.setValueAtTime(pico, t0 + Math.max(ataque, dur - caida));
+        g.gain.linearRampToValueAtTime(0, t0 + dur);
+      }
+
+      function fuente(destino) {
+        const t0 = ctx.currentTime + 0.03;
+        const nodos = [];
+        if (sonido === 'tono') {
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.frequency.value = calc.f;
+          env(g, t0, DUR.tono, 0.35, 0.03, 0.2);
+          o.connect(g).connect(destino);
+          o.start(t0); o.stop(t0 + DUR.tono + 0.05);
+          nodos.push(o);
+        } else if (sonido === 'ruido') {
+          const n = ctx.sampleRate * DUR.ruido;
+          const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+          const d = buf.getChannelData(0);
+          let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+          for (let i = 0; i < n; i++) {           // ruido rosa (Paul Kellet)
+            const w = Math.random() * 2 - 1;
+            b0 = .99886 * b0 + w * .0555179; b1 = .99332 * b1 + w * .0750759; b2 = .969 * b2 + w * .153852;
+            b3 = .8665 * b3 + w * .3104856; b4 = .55 * b4 + w * .5329522; b5 = -.7616 * b5 - w * .016898;
+            d[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * .5362) * .11; b6 = w * .115926;
+          }
+          const src = ctx.createBufferSource(), g = ctx.createGain();
+          src.buffer = buf;
+          env(g, t0, DUR.ruido, 0.6, 0.05, 0.25);
+          src.connect(g).connect(destino);
+          src.start(t0);
+          nodos.push(src);
+        } else if (sonido === 'melodia') {
+          const notas = [60, 64, 67, 72, 76, 79, 84, 79, 76, 72, 67, 64];
+          const paso = DUR.melodia / notas.length;
+          const lp = ctx.createBiquadFilter();
+          lp.type = 'lowpass'; lp.frequency.value = 9000;
+          lp.connect(destino);
+          notas.forEach((m, i) => {
+            const f = 440 * Math.pow(2, (m - 69) / 12);
+            const t = t0 + i * paso;
+            const g = ctx.createGain();
+            env(g, t, paso * 1.6, 0.16, 0.01, paso);
+            g.connect(lp);
+            for (const [tipo, mult, amp] of [['sawtooth', 1, 0.7], ['square', 2, 0.25], ['triangle', 0.5, 0.6]]) {
+              const o = ctx.createOscillator(), a = ctx.createGain();
+              o.type = tipo; o.frequency.value = f * mult; a.gain.value = amp;
+              o.connect(a).connect(g);
+              o.start(t); o.stop(t + paso * 1.7);
+              nodos.push(o);
+            }
+          });
+        } else {
+          // Vocales sintéticas: fuente glótica + formantes (s-a-e-i-o-u)
+          const F = { a: [730, 1090, 2440], e: [530, 1840, 2480], i: [270, 2290, 3010], o: [570, 840, 2410], u: [300, 870, 2240] };
+          const orden = ['a', 'e', 'i', 'o', 'u'];
+          const inicioVoc = t0 + 0.35;
+          const pasoV = (DUR.voz - 0.4) / orden.length;
+          const glotis = ctx.createOscillator();
+          glotis.type = 'sawtooth';
+          glotis.frequency.setValueAtTime(125, inicioVoc);
+          glotis.frequency.linearRampToValueAtTime(110, inicioVoc + DUR.voz - 0.4);
+          const vib = ctx.createOscillator(), vibG = ctx.createGain();
+          vib.frequency.value = 5.5; vibG.gain.value = 2.5;
+          vib.connect(vibG).connect(glotis.frequency);
+          const voz = ctx.createGain();
+          env(voz, inicioVoc, DUR.voz - 0.4, 0.55, 0.04, 0.2);
+          voz.connect(destino);
+          [0, 1, 2].forEach(k => {
+            const bp = ctx.createBiquadFilter(), a = ctx.createGain();
+            bp.type = 'bandpass'; bp.Q.value = 9 - k * 2; a.gain.value = [1, 0.6, 0.35][k] * 3.2;
+            orden.forEach((v, i) => bp.frequency.setTargetAtTime(F[v][k], inicioVoc + i * pasoV, 0.03));
+            glotis.connect(bp).connect(a).connect(voz);
+          });
+          glotis.start(inicioVoc); vib.start(inicioVoc);
+          glotis.stop(t0 + DUR.voz + 0.05); vib.stop(t0 + DUR.voz + 0.05);
+          nodos.push(glotis, vib);
+          // "s" inicial: ruido agudo — sensible a la masa y a la resonancia del conducto
+          const n = Math.floor(ctx.sampleRate * 0.32);
+          const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+          const d = buf.getChannelData(0);
+          for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+          const src = ctx.createBufferSource(), hp = ctx.createBiquadFilter(), g = ctx.createGain();
+          src.buffer = buf; hp.type = 'highpass'; hp.frequency.value = 4200;
+          env(g, t0, 0.32, 0.22, 0.04, 0.1);
+          src.connect(hp).connect(g).connect(destino);
+          src.start(t0);
+          nodos.push(src);
+        }
+        return { nodos, dur: DUR[sonido] + 0.1 };
+      }
+
+      /* ---------- Reproducción ---------- */
+      function detener(limpiarCola = true) {
+        if (limpiarCola) cola = [];
+        if (actual) {
+          clearTimeout(actual.timer);
+          for (const n of actual.fuentes) { try { n.stop(); } catch (_) { } }
+          const cad = actual.cadena;
+          setTimeout(() => cad.entrada.disconnect(), 80);
+          actual = null;
+        }
+        marcarBotones();
+      }
+
+      function reproducir(modo) {
+        asegurarCtx();
+        if (ctx.state === 'suspended') ctx.resume();
+        detener(false);
+        const cadena = crearCadena(modo);
+        const { nodos, dur } = fuente(cadena.entrada);
+        actual = { modo, cadena, fuentes: nodos };
+        actual.timer = setTimeout(() => {
+          detener(false);
+          if (cola.length) setTimeout(() => reproducir(cola.shift()), 250);
+          else marcarBotones();
+        }, dur * 1000);
+        marcarBotones();
+      }
+
+      function marcarBotones() {
+        const modo = actual?.modo;
+        $('play-normal').classList.toggle('playing', modo === 'normal' && !abActivo());
+        $('play-actual').classList.toggle('playing', modo === 'actual' && !abActivo());
+        $('play-ab').classList.toggle('playing', abActivo());
+        $('play-normal').textContent = modo === 'normal' && !abActivo() ? '■ Detener' : '▶ Oído normal';
+        $('play-actual').textContent = modo === 'actual' && !abActivo() ? '■ Detener' : '▶ Configuración';
+        $('play-ab').textContent = abActivo() ? '■ Detener' : '⇄ Alternar A/B';
+        const est = $('audio-state');
+        if (!modo) { est.textContent = 'Usá auriculares y un volumen moderado. Lo que cambia es la diferencia respecto del oído normal.'; return; }
+        const dif = pta(calc);
+        est.innerHTML = modo === 'normal'
+          ? `<b style="color:#566274">A · Oído normal</b> — referencia`
+          : `<b style="color:#0b5fa5">B · Configuración actual</b> — ${dif > 0.5 ? `≈ ${fmt(dif, 0)} dB menos en promedio` : dif < -0.5 ? `≈ ${fmt(-dif, 0)} dB más en promedio` : 'igual al normal'}${calc.reflejo ? ' · reflejo estapedial actuando' : ''}`;
+      }
+
+      let abFlag = false;
+      const abActivo = () => abFlag && (actual || cola.length);
+
+      function toggle(modo) {
+        if (actual && actual.modo === modo && !abActivo()) { detener(); return; }
+        abFlag = false;
+        cola = [];
+        reproducir(modo);
+      }
+
+      function toggleAB() {
+        if (abActivo()) { abFlag = false; detener(); return; }
+        abFlag = true;
+        cola = ['actual', 'normal', 'actual'];
+        reproducir('normal');
+      }
+
+      function actualizar() {
+        if (actual && actual.modo === 'actual') fijar(actual.cadena, state, calc, false);
+        if (actual) marcarBotones();
+      }
+
+      function dibujarScope() {
+        const cv = $('scope'), g = cv.getContext('2d');
+        const datos = new Uint8Array(analyser.fftSize);
+        const loop = () => {
+          const w = cv.width = cv.clientWidth * Math.min(2, devicePixelRatio);
+          const h = cv.height = 54 * Math.min(2, devicePixelRatio);
+          g.fillStyle = '#0f1a28'; g.fillRect(0, 0, w, h);
+          g.strokeStyle = 'rgba(255,255,255,.08)'; g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
+          analyser.getByteTimeDomainData(datos);
+          g.strokeStyle = actual?.modo === 'actual' ? '#5fb0ff' : '#b9c6d6';
+          g.lineWidth = 1.5 * Math.min(2, devicePixelRatio);
+          g.beginPath();
+          const n = 700;
+          for (let i = 0; i < n; i++) {
+            const y = (datos[i] / 128 - 1) * h * 0.9 + h / 2;
+            i ? g.lineTo(i / n * w, y) : g.moveTo(0, y);
+          }
+          g.stroke();
+          requestAnimationFrame(loop);
+        };
+        loop();
+      }
+
+      function bind() {
+        $('play-normal').addEventListener('click', () => toggle('normal'));
+        $('play-actual').addEventListener('click', () => toggle('actual'));
+        $('play-ab').addEventListener('click', toggleAB);
+        $('in-vol').addEventListener('input', e => {
+          pintarRango(e.target);
+          if (master) master.gain.setTargetAtTime(+e.target.value, ctx.currentTime, 0.03);
+        });
+        document.querySelectorAll('#seg-sonido button').forEach(b => b.addEventListener('click', () => {
+          sonido = b.dataset.s;
+          document.querySelectorAll('#seg-sonido button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+          if (actual) { const m = actual.modo; if (!abActivo()) reproducir(m); }
+        }));
+        pintarRango($('in-vol'));
+      }
+
+      return { bind, actualizar };
+    })();
+
+    /* =====================================================================
+       ARRANQUE
+       ===================================================================== */
+    document.body.classList.add('sin-graficos');
+    construirRail();
+    setModo(modo, true);
+    bindControles();
+    audio.bind();
+    sincronizarControles();
+    update();
+
+    crearEscena($('three-host'), seleccionar)
+      .then(e => { escena = e; escena.apply(state, calc); })
+      .catch(err => {
+        console.error(err);
+        $('fallback').style.display = 'grid';
+      });
+  </script>
+</body>
+
+</html>
